@@ -2,6 +2,14 @@
 
 Security visibility and analytics for **Aviatrix Distributed Cloud Firewall** in Splunk. Provides CIM-compliant field extractions and pre-built dashboards for SIEM/SOC teams.
 
+## Screenshots
+
+![Security Overview](screenshots/01_overview.png)
+
+![Traffic Analysis](screenshots/02_traffic_analysis.png)
+
+![Threat Detection](screenshots/03_threat_detection.png)
+
 ## Apps
 
 This repository contains two Splunk apps, designed to be installed together:
