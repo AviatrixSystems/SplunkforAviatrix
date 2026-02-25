@@ -33,6 +33,7 @@ Thumbs.db
 *.png
 !TA-aviatrix/static/*.png
 !aviatrix-security/static/*.png
+!screenshots/*.png
 
 # Splunk local configs (user-specific)
 local/
