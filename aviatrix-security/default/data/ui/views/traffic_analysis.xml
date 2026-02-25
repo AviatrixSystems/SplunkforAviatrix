@@ -1,0 +1,324 @@
+<form version="1.1" theme="dark">
+  <label>Traffic Analysis</label>
+  <description>Deep-dive into Aviatrix Cloud Firewall network traffic</description>
+
+  <init>
+    <set token="show_l4">true</set>
+  </init>
+
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>-4h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="gateway" searchWhenChanged="true">
+      <label>Gateway</label>
+      <choice value="*">All Gateways</choice>
+      <default>*</default>
+      <fieldForLabel>gateway</fieldForLabel>
+      <fieldForValue>gateway</fieldForValue>
+      <search>
+        <query>`aviatrix_l4` | stats count by host | rename host as gateway | sort gateway</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+    </input>
+    <input type="text" token="src" searchWhenChanged="false">
+      <label>Source IP/CIDR</label>
+      <default>*</default>
+    </input>
+    <input type="text" token="dest" searchWhenChanged="false">
+      <label>Destination IP/CIDR</label>
+      <default>*</default>
+    </input>
+    <input type="dropdown" token="action" searchWhenChanged="true">
+      <label>Action</label>
+      <choice value="*">All</choice>
+      <choice value="allowed">Allowed</choice>
+      <choice value="blocked">Blocked</choice>
+      <default>*</default>
+    </input>
+    <input type="dropdown" token="proto" searchWhenChanged="true">
+      <label>Protocol</label>
+      <choice value="*">All</choice>
+      <choice value="TCP">TCP</choice>
+      <choice value="UDP">UDP</choice>
+      <choice value="ICMP">ICMP</choice>
+      <default>*</default>
+    </input>
+    <input type="text" token="port" searchWhenChanged="false">
+      <label>Dest Port</label>
+      <default>*</default>
+    </input>
+  </fieldset>
+
+  <!-- Volume Row -->
+  <row>
+    <panel>
+      <title>Traffic Volume Over Time</title>
+      <chart>
+        <search>
+          <query>`aviatrix_l4` host=$gateway$ proto=$proto$
+| eval src_ip=coalesce(src_ip, src)
+| eval dst_ip=coalesce(dst_ip, dest)
+| search src_ip=$src$ dst_ip=$dest$ dst_port=$port$
+| eval action_type=case(action=="PERMIT", "Allowed", action=="DENY", "Blocked", 1=1, "Other")
+| where ("$action$"="*" OR action_type="$action$")
+| eval byte_count=coalesce(tonumber(session_byte_cnt), tonumber(bytes), 0)
+| timechart sum(byte_count) as bytes by action_type</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.fieldColors">{"Allowed": 0x53A051, "Blocked": 0xDC4E41}</option>
+        <option name="charting.axisTitleY.text">Bytes</option>
+        <option name="height">200</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Sessions Over Time</title>
+      <chart>
+        <search>
+          <query>`aviatrix_l4` host=$gateway$ proto=$proto$
+| eval src_ip=coalesce(src_ip, src)
+| eval dst_ip=coalesce(dst_ip, dest)
+| search src_ip=$src$ dst_ip=$dest$ dst_port=$port$
+| eval action_type=case(action=="PERMIT", "Allowed", action=="DENY", "Blocked", 1=1, "Other")
+| where ("$action$"="*" OR action_type="$action$")
+| timechart count by action_type</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.fieldColors">{"Allowed": 0x53A051, "Blocked": 0xDC4E41}</option>
+        <option name="charting.axisTitleY.text">Sessions</option>
+        <option name="height">200</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Sankey and Top Talkers -->
+  <row>
+    <panel>
+      <title>Traffic Flow (Source -> Destination)</title>
+      <table>
+        <search>
+          <query>`aviatrix_l4` host=$gateway$ proto=$proto$
+| eval src_ip=coalesce(src_ip, src)
+| eval dst_ip=coalesce(dst_ip, dest)
+| search src_ip=$src$ dst_ip=$dest$ dst_port=$port$
+| eval action_type=case(action=="PERMIT", "Allowed", action=="DENY", "Blocked", 1=1, "Other")
+| where ("$action$"="*" OR action_type="$action$")
+| stats count as Sessions by src_ip, dst_ip, dst_port, proto, action_type
+| sort - Sessions
+| head 50
+| rename src_ip as "Source", dst_ip as "Destination", dst_port as "Port", proto as "Protocol", action_type as "Action"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="count">20</option>
+        <option name="drilldown">row</option>
+        <option name="wrap">false</option>
+        <format type="number" field="Sessions">
+          <option name="precision">0</option>
+        </format>
+        <format type="color" field="Action">
+          <colorPalette type="map">{"Allowed": 0x53A051, "Blocked": 0xDC4E41}</colorPalette>
+        </format>
+        <format type="color" field="Sessions">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" midValue="50"></scale>
+        </format>
+        <drilldown>
+          <set token="form.src">$row.Source$</set>
+          <set token="form.dest">$row.Destination$</set>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Top Sources and Destinations -->
+  <row>
+    <panel>
+      <title>Top Source IPs</title>
+      <table>
+        <search>
+          <query>`aviatrix_l4` host=$gateway$ proto=$proto$
+| eval src_ip=coalesce(src_ip, src)
+| eval dst_ip=coalesce(dst_ip, dest)
+| search src_ip=$src$ dst_ip=$dest$ dst_port=$port$
+| eval action_type=case(action=="PERMIT", "Allowed", action=="DENY", "Blocked", 1=1, "Other")
+| where ("$action$"="*" OR action_type="$action$")
+| eval byte_count=coalesce(tonumber(session_byte_cnt), tonumber(bytes), tonumber(bytes_sent), 0)
+| stats count as Sessions, sum(byte_count) as Bytes, dc(dst_ip) as "Unique Dests" by src_ip
+| eval Bytes=round(Bytes/1024/1024, 2)
+| sort - Sessions
+| head 20
+| rename src_ip as "Source IP", Bytes as "MB Transferred"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">row</option>
+        <format type="number" field="Sessions">
+          <option name="precision">0</option>
+        </format>
+        <drilldown>
+          <set token="form.src">$row.Source IP$</set>
+        </drilldown>
+      </table>
+    </panel>
+    <panel>
+      <title>Top Destination IPs</title>
+      <table>
+        <search>
+          <query>`aviatrix_l4` host=$gateway$ proto=$proto$
+| eval src_ip=coalesce(src_ip, src)
+| eval dst_ip=coalesce(dst_ip, dest)
+| search src_ip=$src$ dst_ip=$dest$ dst_port=$port$
+| eval action_type=case(action=="PERMIT", "Allowed", action=="DENY", "Blocked", 1=1, "Other")
+| where ("$action$"="*" OR action_type="$action$")
+| eval byte_count=coalesce(tonumber(session_byte_cnt), tonumber(bytes), tonumber(bytes_received), 0)
+| stats count as Sessions, sum(byte_count) as Bytes, dc(src_ip) as "Unique Sources" by dst_ip
+| eval Bytes=round(Bytes/1024/1024, 2)
+| sort - Sessions
+| head 20
+| rename dst_ip as "Destination IP", Bytes as "MB Transferred"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">row</option>
+        <format type="number" field="Sessions">
+          <option name="precision">0</option>
+        </format>
+        <drilldown>
+          <set token="form.dest">$row.Destination IP$</set>
+        </drilldown>
+      </table>
+    </panel>
+    <panel>
+      <title>Port Distribution</title>
+      <chart>
+        <search>
+          <query>`aviatrix_l4` host=$gateway$ proto=$proto$
+| eval src_ip=coalesce(src_ip, src)
+| eval dst_ip=coalesce(dst_ip, dest)
+| search src_ip=$src$ dst_ip=$dest$ dst_port=$port$
+| eval action_type=case(action=="PERMIT", "Allowed", action=="DENY", "Blocked", 1=1, "Other")
+| where ("$action$"="*" OR action_type="$action$")
+| stats count by dst_port
+| sort - count
+| head 15</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">all</option>
+        <option name="height">300</option>
+        <drilldown>
+          <set token="form.port">$click.value$</set>
+        </drilldown>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Detailed Events -->
+  <row>
+    <panel>
+      <title>Traffic Events</title>
+      <input type="dropdown" token="log_type" searchWhenChanged="true">
+        <label>Log Type</label>
+        <choice value="l4">L4 Firewall</choice>
+        <choice value="l7">L7 Firewall</choice>
+        <choice value="fqdn">FQDN</choice>
+        <default>l4</default>
+        <change>
+          <condition value="l4">
+            <set token="show_l4">true</set>
+            <unset token="show_l7"></unset>
+            <unset token="show_fqdn"></unset>
+          </condition>
+          <condition value="l7">
+            <unset token="show_l4"></unset>
+            <set token="show_l7">true</set>
+            <unset token="show_fqdn"></unset>
+          </condition>
+          <condition value="fqdn">
+            <unset token="show_l4"></unset>
+            <unset token="show_l7"></unset>
+            <set token="show_fqdn">true</set>
+          </condition>
+        </change>
+      </input>
+      <table depends="$show_l4$">
+        <search>
+          <query>`aviatrix_l4` host=$gateway$ proto=$proto$
+| eval src=src_ip, dest=dst_ip, port=dst_port
+| search src=$src$ dest=$dest$ port=$port$
+| eval action_display=action
+| where ("$action$"="*" OR (action="PERMIT" AND "$action$"="allowed") OR (action="DENY" AND "$action$"="blocked"))
+| table _time, host, src, dest, port, proto, action_display, session_byte_cnt, uuid
+| rename host as Gateway, action_display as Action, session_byte_cnt as Bytes, uuid as Policy
+| head 500</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="count">20</option>
+        <option name="drilldown">row</option>
+        <option name="wrap">false</option>
+        <format type="color" field="Action">
+          <colorPalette type="map">{"PERMIT": 0x53A051, "DENY": 0xDC4E41}</colorPalette>
+        </format>
+      </table>
+      <table depends="$show_l7$">
+        <search>
+          <query>`aviatrix_l7` host=$gateway$ proto=$proto$
+| eval src=src, dest=dest, port=dest_port
+| search src=$src$ dest=$dest$ port=$port$
+| eval action_display=action
+| where ("$action$"="*" OR (action="Permit" AND "$action$"="allowed") OR (action="Deny" AND "$action$"="blocked"))
+| table _time, host, src, dest, port, proto, action_display, sni_hostname, decided_by
+| rename host as Gateway, action_display as Action, sni_hostname as Domain, decided_by as Policy
+| head 500</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="count">20</option>
+        <option name="drilldown">row</option>
+        <option name="wrap">false</option>
+        <format type="color" field="Action">
+          <colorPalette type="map">{"Permit": 0x53A051, "Deny": 0xDC4E41}</colorPalette>
+        </format>
+      </table>
+      <table depends="$show_fqdn$">
+        <search>
+          <query>`aviatrix_fqdn` gateway=$gateway$
+| eval src=sip, dest=dip
+| search src=$src$ dest=$dest$
+| eval action_display=if(state="MATCHED", "Allowed", "Blocked")
+| where ("$action$"="*" OR (state="MATCHED" AND "$action$"="allowed") OR (state!="MATCHED" AND "$action$"="blocked"))
+| table _time, gateway, src, dest, hostname, rule, action_display
+| rename gateway as Gateway, action_display as Action, hostname as Domain
+| head 500</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="count">20</option>
+        <option name="drilldown">row</option>
+        <option name="wrap">false</option>
+        <format type="color" field="Action">
+          <colorPalette type="map">{"Allowed": 0x53A051, "Blocked": 0xDC4E41}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+</form>

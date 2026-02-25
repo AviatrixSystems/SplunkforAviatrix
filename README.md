@@ -1,68 +1,64 @@
-# Aviatrix App for Splunk
-* **App Homepage:** https://splunkbase.splunk.com/app/3585/
-* **App Version:** 1.8
+# Aviatrix Splunk Apps
 
-## Description
-Aviatrix App for Splunk is an advanced reporting and analysis tool for Aviatrix cloud networking software. This app leverages Aviatrix controller and gateway logs and Splunk's search and visualization capabilities to provide monitoring and troubleshooting capabilities along with rapid insight and operational visibility for CloudOps and infrastructure engineers.
+Security visibility and analytics for **Aviatrix Distributed Cloud Firewall** in Splunk. Provides CIM-compliant field extractions and pre-built dashboards for SIEM/SOC teams.
 
-## Getting Started
+## Apps
 
-### Step1: Install App
+This repository contains two Splunk apps, designed to be installed together:
 
-This App is available on [Github](https://github.com/AviatrixSystems/SplunkforAviatrix). There are different ways to install splunk app.
-#### Install via command line:
-You can clone the github repository to install the App.
-From ``$SPLUNK_HOME/etc/apps/`` directory, type the following command:
+### TA-aviatrix (Technology Add-on)
 
-    git clone https://github.com/AviatrixCommunity/SplunkforAviatrix.git SplunkforAviatrix
-Restart splunk to start using the app.
+Field extractions, lookups, and CIM data normalization for Aviatrix logs ingested via HEC.
 
-#### Install via Splunkbase:
-Alternatively you can download tar file of this app from [splunkbase](https://splunkbase.splunk.com/app/3585/), and follow instructions available there to install the app.
+**Supported sourcetypes:**
 
+| Sourcetype | Description |
+|---|---|
+| `aviatrix:firewall:l4` | DCF L4 micro-segmentation logs |
+| `aviatrix:firewall:l7` | DCF L7 TLS/SNI inspection logs |
+| `aviatrix:firewall:fqdn` | FQDN egress filtering logs |
+| `aviatrix:ids` | Suricata IDS alerts (EVE JSON) |
+| `aviatrix:gateway:network` | Gateway network statistics |
+| `aviatrix:gateway:system` | Gateway CPU/memory/disk statistics |
+| `aviatrix:controller:audit` | Controller API audit logs |
 
-### Step 2: Initial Setup
-Make sure the latest version of Aviatrix software is installed before you start to configure the controller. You
-should see the alert for software upgrade on the menu bar of the controller if a newer version is available.
-Click Upgrade and wait for the upgrade to complete.
+**CIM data models:** Network Traffic, Intrusion Detection, Change Analysis
 
-Follow the steps below to enable the logging for Splunk and Sumo Logic.
+### aviatrix-security (Visualization App)
 
-1. Launch the web browser and input the URL of your controller.
-2. Once logged in, navigate to Settings > Loggings.
-3. On the right hand side, enable the logging for Splunk by clicking the status button area. A new panel will appear for you to input Splunk IP Address and Splunk Server Listening Port. Enter Splunk enterprise IP address and port number(Splunk listens on port 9997 by default for forwarders). Click Enable when you are done.
-4. To enable AviatrixRule logging, select packet logging when configuring gateway security policies. This is done by clicking the gateway of interests at Gateway panel.
-5. To verify if the logs are delivered to the specified Splunk and Sumo Logic servers, make a user VPN connection through any gateway managed by the controller. At the prompt on Search bar of Splunk, type Aviatrix* and you shall see the Aviatrix logs.
+Pre-built dashboards for monitoring Aviatrix Cloud Firewall activity.
 
-## Features
-This app comes with few prebuilt dashboards.
+**Dashboards:**
 
-### Overview
+- **Security Overview** -- KPIs, threat timeline, top blocked destinations, gateway block rates
+- **Traffic Analysis** -- L4/L7/FQDN traffic patterns, top sources/destinations, protocol breakdown
+- **Threat Detection** -- IDS alert severity, signature analysis, source/destination correlation
+- **Policy Enforcement** -- L7 policy hits, allow/deny ratios, domain analysis
+- **Gateway Health** -- CPU, memory, disk, network throughput per gateway
+- **Audit Trail** -- Controller API changes, user activity, success/failure tracking
 
-This dashboard shows an overview of all the traffic logs collected by Splunk from Aviatrix controller.
+## Requirements
 
-![Overview](sample/splunk_overview.png)
+- Splunk Enterprise 8.0+ or Splunk Cloud
+- Aviatrix Controller with logging configured to send via HEC
+- CIM Add-on 4.0+ (for data model acceleration)
 
-### Gateway
+## Installation
 
-This dashboard analyses Gatewway related data like network interface, memory, cpu, disk load,etc.
-![Gateway](sample/splunk_gateway.png)
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
 
-### Openvpn
+**Quick start:**
 
-This dashboard analyses data specific to VPN sessions. By default, it shows charts for all VPN sessions, but it can be filtered to show data corresponding to a VPN user in a particular gateway.
-![OpenVPN](sample/splunk_openvpn.png)
+```bash
+# Package the apps
+tar -czf TA-aviatrix.tgz TA-aviatrix
+tar -czf aviatrix-security.tgz aviatrix-security
 
-### Security
+# Upload via Splunk Web UI:
+# Apps > Manage Apps > Install app from file
+# Install TA-aviatrix first, then aviatrix-security
+```
 
-This dashboard shows data related to rules violations which can be filtered over gateway.
-![Security](sample/splunk_security.png)
+## License
 
-### Dependency discovery
-
-This dashboard shows lets you see network flow to/from servers across the network, and can be used for dependency discovery post cloud migration using IPMotion. This dashboard needs ``Sankey Diagram - Custom Visualization`` Splunk app to be preinstalled on Splunk server for visualisation. For more details on this dashboard and setup instructions, click [here](http://docs.aviatrix.com/HowTos/ipmotion_dependency_discovery.html).
-
-![Dependency discovery](sample/splunk_dependency_discovery.png)
-
-## Support
-Email to support@aviatrix.com for questions. 
+Apache License 2.0 -- see [LICENSE](LICENSE).

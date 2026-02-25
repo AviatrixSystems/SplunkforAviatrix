@@ -1,0 +1,11 @@
+action,action_cim
+PERMIT,allowed
+DENY,blocked
+Permit,allowed
+Deny,blocked
+Allow,allowed
+Block,blocked
+accept,allowed
+drop,blocked
+allowed,allowed
+blocked,blocked

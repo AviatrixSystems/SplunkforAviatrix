@@ -1,0 +1,378 @@
+<form version="1.1" theme="dark">
+  <label>L7 Firewall Activity</label>
+  <description>Distributed Cloud Firewall L7 policy activity, domain analysis, and threat investigation</description>
+
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="gateway" searchWhenChanged="true">
+      <label>Gateway</label>
+      <choice value="*">All Gateways</choice>
+      <default>*</default>
+      <fieldForLabel>gateway</fieldForLabel>
+      <fieldForValue>gateway</fieldForValue>
+      <search>
+        <query>`aviatrix_l7` | stats count by host | rename host as gateway | sort gateway</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+    </input>
+    <input type="dropdown" token="action" searchWhenChanged="true">
+      <label>Action</label>
+      <choice value="*">All</choice>
+      <choice value="allowed">Allowed</choice>
+      <choice value="blocked">Blocked</choice>
+      <default>*</default>
+    </input>
+    <input type="dropdown" token="enforced" searchWhenChanged="true">
+      <label>Enforcement Mode</label>
+      <choice value="*">All</choice>
+      <choice value="true">Enforced</choice>
+      <choice value="false">Monitor Only</choice>
+      <default>*</default>
+    </input>
+    <input type="text" token="domain_filter" searchWhenChanged="false">
+      <label>Domain Filter</label>
+      <default>*</default>
+    </input>
+  </fieldset>
+
+  <!-- KPI Row -->
+  <row>
+    <panel>
+      <title>Total Policy Hits</title>
+      <single>
+        <search>
+          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
+| search sni_hostname=$domain_filter$
+| stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="useThousandSeparators">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Total Blocks</title>
+      <single>
+        <search>
+          <query>`aviatrix_l7` host=$gateway$ action_cim=blocked enforced=$enforced$
+| search sni_hostname=$domain_filter$
+| stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">all</option>
+        <option name="useThousandSeparators">1</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x53a051","0xf8be34","0xdc4e41"]</option>
+        <option name="rangeValues">[10,100]</option>
+        <option name="useColors">1</option>
+        <drilldown>
+          <set token="form.action">blocked</set>
+        </drilldown>
+      </single>
+    </panel>
+    <panel>
+      <title>Unique Domains</title>
+      <single>
+        <search>
+          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
+| search sni_hostname=$domain_filter$
+| stats dc(sni_hostname)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Unique Sources</title>
+      <single>
+        <search>
+          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
+| search sni_hostname=$domain_filter$
+| stats dc(src_ip)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Unique Policies</title>
+      <single>
+        <search>
+          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
+| search sni_hostname=$domain_filter$
+| stats dc(decided_by)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Trends & Traffic Context -->
+  <row>
+    <panel>
+      <title>Policy Activity Over Time</title>
+      <chart>
+        <search>
+          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
+| search sni_hostname=$domain_filter$
+| eval action_label=if(action_cim=="allowed", "Allowed", "Blocked")
+| timechart count by action_label</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.fieldColors">{"Allowed": 0x53A051, "Blocked": 0xDC4E41}</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Traffic Direction</title>
+      <chart>
+        <search>
+          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
+| search sni_hostname=$domain_filter$
+| eval direction=case(
+    match(src_ip, "^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\.|^192\.168\.|^100\.64\.") AND match(dest_ip, "^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\.|^192\.168\.|^100\.64\."), "East-West",
+    match(src_ip, "^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\.|^192\.168\.|^100\.64\."), "Egress",
+    1=1, "Ingress"
+)
+| stats count by direction</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.fieldColors">{"East-West": 0x0877A6, "Egress": 0x53A051, "Ingress": 0xF8BE34}</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Enforced vs Monitor Mode</title>
+      <chart>
+        <search>
+          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$
+| search sni_hostname=$domain_filter$
+| eval mode=if(enforced=="true", "Enforced", "Monitor")
+| stats count by mode</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">all</option>
+        <option name="charting.fieldColors">{"Enforced": 0x53A051, "Monitor": 0xF8BE34}</option>
+        <option name="height">250</option>
+        <drilldown>
+          <condition value="Enforced">
+            <set token="form.enforced">true</set>
+          </condition>
+          <condition value="Monitor">
+            <set token="form.enforced">false</set>
+          </condition>
+        </drilldown>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Domain Analysis -->
+  <row>
+    <panel>
+      <title>Top Accessed Domains</title>
+      <chart>
+        <search>
+          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
+| search sni_hostname=$domain_filter$
+| stats count by sni_hostname
+| sort - count
+| head 15
+| rename sni_hostname as Domain</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.drilldown">all</option>
+        <option name="charting.legend.placement">none</option>
+        <option name="height">350</option>
+        <drilldown>
+          <set token="form.domain_filter">$click.name$</set>
+        </drilldown>
+      </chart>
+    </panel>
+    <panel>
+      <title>Top Blocked Domains</title>
+      <table>
+        <search>
+          <query>`aviatrix_l7` host=$gateway$ action_cim=blocked enforced=$enforced$
+| search sni_hostname=$domain_filter$
+| stats count as "Block Count", dc(src_ip) as "Unique Sources", values(decided_by) as Policies, latest(_time) as last_seen by sni_hostname
+| eval last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S")
+| sort - "Block Count"
+| head 50
+| rename sni_hostname as Domain</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="count">15</option>
+        <option name="drilldown">row</option>
+        <format type="number" field="Block Count">
+          <option name="precision">0</option>
+        </format>
+        <format type="color" field="Block Count">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" midValue="25"></scale>
+        </format>
+        <drilldown>
+          <set token="form.domain_filter">$row.Domain$</set>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Source & Policy Analysis -->
+  <row>
+    <panel>
+      <title>Domain Access by Source</title>
+      <table>
+        <search>
+          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
+| search sni_hostname=$domain_filter$
+| stats count as Sessions, dc(sni_hostname) as "Unique Domains", values(sni_hostname) as "Top Domains" by src_ip
+| sort - Sessions
+| head 20
+| rename src_ip as "Source IP"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">row</option>
+        <format type="number" field="Sessions">
+          <option name="precision">0</option>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <title>Top Policies by Hit Count</title>
+      <table>
+        <search>
+          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
+| search sni_hostname=$domain_filter$
+| stats count as Hits, count(eval(action_cim=="blocked")) as Blocked, count(eval(action_cim=="allowed")) as Allowed, dc(sni_hostname) as "Unique Domains", dc(src_ip) as "Unique Sources" by decided_by
+| eval "Block Rate"=round(Blocked/Hits*100, 1)."%"
+| sort - Hits
+| head 20
+| rename decided_by as "Policy UUID"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">row</option>
+        <format type="number" field="Hits">
+          <option name="precision">0</option>
+        </format>
+        <format type="color" field="Block Rate">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#53A051"></colorPalette>
+          <scale type="minMidMax" minValue="0" midValue="25" maxValue="100"></scale>
+        </format>
+        <drilldown>
+          <link target="_blank">/app/$env:app$/search?q=search%20%60aviatrix_l7%60%20decided_by%3D%22$row.Policy UUID$%22&amp;earliest=$time.earliest$&amp;latest=$time.latest$</link>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Investigation -->
+  <row>
+    <panel>
+      <title>Top Denied Flows</title>
+      <table>
+        <search>
+          <query>`aviatrix_l7` host=$gateway$ action_cim=blocked enforced=$enforced$
+| search sni_hostname=$domain_filter$
+| stats count as "Block Count", latest(_time) as last_seen by src_ip, dest_ip, dest_port, proto, sni_hostname, decided_by
+| eval last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S")
+| sort - "Block Count"
+| head 50
+| rename src_ip as "Source", dest_ip as "Destination", dest_port as "Port", proto as "Protocol", sni_hostname as "Domain", decided_by as "Policy"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="count">20</option>
+        <option name="drilldown">row</option>
+        <format type="number" field="Block Count">
+          <option name="precision">0</option>
+        </format>
+        <format type="color" field="Block Count">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" midValue="50"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Gateway Analysis -->
+  <row>
+    <panel>
+      <title>Activity by Gateway</title>
+      <chart>
+        <search>
+          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
+| search sni_hostname=$domain_filter$
+| eval action_label=if(action_cim=="allowed", "Allowed", "Blocked")
+| chart count over host by action_label
+| rename host as Gateway</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">all</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.fieldColors">{"Allowed": 0x53A051, "Blocked": 0xDC4E41}</option>
+        <option name="height">250</option>
+        <drilldown>
+          <set token="form.gateway">$click.value$</set>
+        </drilldown>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Detailed Events -->
+  <row>
+    <panel>
+      <title>L7 Events</title>
+      <table>
+        <search>
+          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
+| search sni_hostname=$domain_filter$
+| eval action_label=if(action_cim=="allowed", "Allowed", "Blocked")
+| table _time, host, src_ip, dest_ip, dest_port, proto, sni_hostname, action_label, decided_by, enforced
+| head 500
+| rename host as Gateway, src_ip as Source, dest_ip as Destination, dest_port as Port, proto as Protocol, sni_hostname as Domain, action_label as Action, decided_by as Policy, enforced as Enforced</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="count">20</option>
+        <option name="drilldown">row</option>
+        <option name="wrap">false</option>
+        <format type="color" field="Action">
+          <colorPalette type="map">{"Allowed": 0x53A051, "Blocked": 0xDC4E41}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+</form>
