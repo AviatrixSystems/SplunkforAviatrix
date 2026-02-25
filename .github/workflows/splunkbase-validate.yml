@@ -23,13 +23,13 @@ jobs:
         run: pip install splunk-packaging-toolkit splunk-appinspect
 
       - name: Package TA-aviatrix
-        run: slim package TA-aviatrix
+        run: slim package TA-aviatrix -o .slim-repo
 
       - name: Package aviatrix-security
-        run: slim package aviatrix-security
+        run: slim package aviatrix-security -r .slim-repo
 
       - name: AppInspect TA-aviatrix
-        run: splunk-appinspect inspect TA-aviatrix-*.tar.gz --mode precert --included-tags cloud
+        run: splunk-appinspect inspect .slim-repo/TA-aviatrix-*.tar.gz --mode precert --included-tags cloud
 
       - name: AppInspect aviatrix-security
         run: splunk-appinspect inspect aviatrix-security-*.tar.gz --mode precert --included-tags cloud
@@ -38,7 +38,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: TA-aviatrix-package
-          path: TA-aviatrix-*.tar.gz
+          path: .slim-repo/TA-aviatrix-*.tar.gz
           retention-days: 30
 
       - name: Upload aviatrix-security package
