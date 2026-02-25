@@ -1,0 +1,7 @@
+session_end_reason,reason_description
+0,active
+1,timeout
+2,rst_client
+3,rst_server
+4,fin
+5,policy_deny

@@ -1,0 +1,40 @@
+# Environment and credentials
+.env
+.env.*
+*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+
+# IDE and tools
+.idea/
+.vscode/
+*.swp
+*.swo
+.claude/
+.serena/
+.playwright-mcp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.tar.gz
+*.tgz
+
+# Screenshots and working images
+*.png
+!TA-aviatrix/static/*.png
+!aviatrix-security/static/*.png
+!screenshots/*.png
+
+# Splunk local configs (user-specific)
+local/
+*/local/

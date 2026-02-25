@@ -1,0 +1,20 @@
+<nav search_view="search" color="#1E3A5F">
+  <view name="overview" default="true" />
+  <collection label="Security">
+    <view name="traffic_analysis" />
+    <view name="threat_detection" />
+    <view name="policy_enforcement" />
+  </collection>
+  <collection label="Operations">
+    <view name="gateway_health" />
+    <view name="audit_trail" />
+  </collection>
+  <collection label="Search">
+    <view name="search" />
+    <view name="analytics_workspace" />
+    <view name="datasets" />
+  </collection>
+  <collection label="Dashboards">
+    <view name="dashboards" />
+  </collection>
+</nav>

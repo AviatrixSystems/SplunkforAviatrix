@@ -1,0 +1,245 @@
+<form version="1.1" theme="dark">
+  <label>Gateway Health</label>
+  <description>Aviatrix Gateway performance and health monitoring</description>
+
+  <fieldset submitButton="false" autoRun="true">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>-4h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="gateway" searchWhenChanged="true">
+      <label>Gateway</label>
+      <choice value="*">All Gateways</choice>
+      <default>*</default>
+      <fieldForLabel>gateway</fieldForLabel>
+      <fieldForValue>gateway</fieldForValue>
+      <search>
+        <query>`aviatrix_gateway_system` | stats count by gateway | sort gateway</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+    </input>
+  </fieldset>
+
+  <!-- Gateway Status Grid -->
+  <row>
+    <panel>
+      <title>Gateway Status (Last 15 min)</title>
+      <table>
+        <search>
+          <query>`aviatrix_gateway_system` earliest=-15m
+| stats latest(cpu_idle) as cpu_idle, latest(memory_available) as mem_avail, latest(memory_total) as mem_total, latest(disk_free) as disk_free, latest(disk_total) as disk_total, latest(_time) as last_seen by gateway
+| eval cpu_used=round(100-tonumber(cpu_idle), 1)
+| eval mem_used_pct=round((tonumber(mem_total)-tonumber(mem_avail))/tonumber(mem_total)*100, 1)
+| eval disk_used_pct=round((tonumber(disk_total)-tonumber(disk_free))/tonumber(disk_total)*100, 1)
+| eval status=case(cpu_used>90 OR mem_used_pct>90 OR disk_used_pct>90, "Critical", cpu_used>75 OR mem_used_pct>75 OR disk_used_pct>75, "Warning", 1=1, "Healthy")
+| eval last_seen=strftime(last_seen, "%H:%M:%S")
+| table gateway, status, cpu_used, mem_used_pct, disk_used_pct, last_seen
+| rename gateway as Gateway, status as Status, cpu_used as "CPU %", mem_used_pct as "Memory %", disk_used_pct as "Disk %", last_seen as "Last Seen"</query>
+          <earliest>-15m</earliest>
+          <latest>now</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="count">20</option>
+        <option name="drilldown">row</option>
+        <format type="color" field="Status">
+          <colorPalette type="map">{"Healthy": 0x53A051, "Warning": 0xF8BE34, "Critical": 0xDC4E41}</colorPalette>
+        </format>
+        <format type="color" field="CPU %">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#53A051"></colorPalette>
+          <scale type="minMidMax" minValue="0" midValue="50" maxValue="100"></scale>
+        </format>
+        <format type="color" field="Memory %">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#53A051"></colorPalette>
+          <scale type="minMidMax" minValue="0" midValue="50" maxValue="100"></scale>
+        </format>
+        <format type="color" field="Disk %">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#53A051"></colorPalette>
+          <scale type="minMidMax" minValue="0" midValue="50" maxValue="100"></scale>
+        </format>
+        <drilldown>
+          <set token="form.gateway">$row.Gateway$</set>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+
+  <!-- CPU and Memory -->
+  <row>
+    <panel>
+      <title>CPU Utilization</title>
+      <chart>
+        <search>
+          <query>`aviatrix_gateway_system` gateway=$gateway$
+| eval cpu_used=100-tonumber(cpu_idle)
+| timechart avg(cpu_used) as "CPU %" by gateway</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.axisY.minimumNumber">0</option>
+        <option name="charting.axisY.maximumNumber">100</option>
+        <option name="charting.axisTitleY.text">CPU %</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Memory Utilization</title>
+      <chart>
+        <search>
+          <query>`aviatrix_gateway_system` gateway=$gateway$
+| eval mem_used_pct=round((tonumber(memory_total)-tonumber(memory_available))/tonumber(memory_total)*100, 1)
+| timechart avg(mem_used_pct) as "Memory %" by gateway</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.axisY.minimumNumber">0</option>
+        <option name="charting.axisY.maximumNumber">100</option>
+        <option name="charting.axisTitleY.text">Memory %</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Network Throughput -->
+  <row>
+    <panel>
+      <title>Network Throughput (RX)</title>
+      <chart>
+        <search>
+          <query>`aviatrix_gateway_network` gateway=$gateway$
+| eval rx_rate=if(match(total_rx_rate, "Kb$$"), tonumber(replace(total_rx_rate, "Kb$$", "")), tonumber(total_rx_rate)/1024)
+| timechart avg(rx_rate) as "RX Kbps" by gateway</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.axisTitleY.text">Kbps</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Network Throughput (TX)</title>
+      <chart>
+        <search>
+          <query>`aviatrix_gateway_network` gateway=$gateway$
+| eval tx_rate=if(match(total_tx_rate, "Kb$$"), tonumber(replace(total_tx_rate, "Kb$$", "")), tonumber(total_tx_rate)/1024)
+| timechart avg(tx_rate) as "TX Kbps" by gateway</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.axisTitleY.text">Kbps</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Connection Tracking -->
+  <row>
+    <panel>
+      <title>Connection Tracking</title>
+      <chart>
+        <search>
+          <query>`aviatrix_gateway_network` gateway=$gateway$
+| timechart avg(conntrack_count) as "Active Connections" by gateway</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.axisTitleY.text">Connections</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Limit Exceeded Events</title>
+      <table>
+        <search>
+          <query>`aviatrix_gateway_network` gateway=$gateway$
+| stats max(bw_in_limit_exceeded) as "BW In Exceeded", max(bw_out_limit_exceeded) as "BW Out Exceeded", max(pps_limit_exceeded) as "PPS Exceeded", max(conntrack_limit_exceeded) as "Conntrack Exceeded" by gateway
+| rename gateway as Gateway</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">none</option>
+        <format type="number" field="BW In Exceeded">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="BW Out Exceeded">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="PPS Exceeded">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="Conntrack Exceeded">
+          <option name="precision">0</option>
+        </format>
+        <format type="color" field="BW In Exceeded">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" midValue="1000"></scale>
+        </format>
+        <format type="color" field="BW Out Exceeded">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" midValue="1000"></scale>
+        </format>
+        <format type="color" field="PPS Exceeded">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" midValue="1000"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Disk Usage -->
+  <row>
+    <panel>
+      <title>Disk Usage</title>
+      <chart>
+        <search>
+          <query>`aviatrix_gateway_system` gateway=$gateway$
+| eval disk_used_pct=round((tonumber(disk_total)-tonumber(disk_free))/tonumber(disk_total)*100, 1)
+| timechart avg(disk_used_pct) as "Disk %" by gateway</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.axisY.minimumNumber">0</option>
+        <option name="charting.axisY.maximumNumber">100</option>
+        <option name="charting.axisTitleY.text">Disk %</option>
+        <option name="height">200</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Gateway Details</title>
+      <table>
+        <search>
+          <query>`aviatrix_gateway_network` gateway=$gateway$
+| stats latest(public_ip) as "Public IP", latest(private_ip) as "Private IP", latest(interface) as Interface, latest(total_rx_cum) as "Total RX", latest(total_tx_cum) as "Total TX" by gateway
+| eval "Public IP"=if(match('Public IP', "^%\{"), "N/A", 'Public IP')
+| rename gateway as Gateway</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+</form>

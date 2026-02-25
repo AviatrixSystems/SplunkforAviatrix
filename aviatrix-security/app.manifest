@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "2.0.0",
+  "info": {
+    "title": "Aviatrix Security",
+    "id": {
+      "group": null,
+      "name": "aviatrix-security",
+      "version": "2.0.0"
+    },
+    "author": [
+      {
+        "name": "Aviatrix",
+        "email": null,
+        "company": "Aviatrix"
+      }
+    ],
+    "releaseDate": null,
+    "description": "Security visibility and analytics for Aviatrix Distributed Cloud Firewall. Provides dashboards for traffic analysis, threat detection, policy enforcement, and compliance monitoring optimized for SIEM/SOC teams.",
+    "classification": {
+      "intendedAudience": "Security",
+      "categories": ["Security, Fraud & Compliance"],
+      "developmentStatus": "Production/Stable"
+    },
+    "commonInformationModels": null,
+    "license": {
+      "name": "Apache License 2.0",
+      "text": null,
+      "uri": "https://www.apache.org/licenses/LICENSE-2.0"
+    },
+    "privacyPolicy": {
+      "name": null,
+      "text": null,
+      "uri": null
+    },
+    "releaseNotes": {
+      "name": "Version 2.0.0",
+      "text": "RELEASE_NOTES.md",
+      "uri": null
+    }
+  },
+  "dependencies": {
+    "TA-aviatrix": {
+      "version": ">=2.0.0",
+      "package": "TA-aviatrix",
+      "optional": false
+    }
+  },
+  "tasks": null,
+  "inputGroups": null,
+  "incompatibleApps": null,
+  "platformRequirements": {
+    "splunk": {
+      "Enterprise": ">=8.0"
+    }
+  },
+  "supportedDeployments": [
+    "_standalone",
+    "_distributed",
+    "_search_head_clustering"
+  ],
+  "targetWorkloads": [
+    "_search_heads"
+  ]
+}

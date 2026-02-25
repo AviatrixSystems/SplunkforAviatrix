@@ -1,0 +1,10 @@
+proto,protocol_name
+TCP,tcp
+UDP,udp
+ICMP,icmp
+tcp,tcp
+udp,udp
+icmp,icmp
+6,tcp
+17,udp
+1,icmp

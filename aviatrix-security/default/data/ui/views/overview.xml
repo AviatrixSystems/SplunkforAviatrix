@@ -1,0 +1,310 @@
+<form version="1.1" theme="dark">
+  <label>Security Overview</label>
+  <description>Aviatrix Cloud Firewall security posture at a glance</description>
+
+  <fieldset submitButton="false" autoRun="true">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="gateway" searchWhenChanged="true">
+      <label>Gateway</label>
+      <choice value="*">All Gateways</choice>
+      <default>*</default>
+      <initialValue>*</initialValue>
+      <fieldForLabel>gateway</fieldForLabel>
+      <fieldForValue>gateway</fieldForValue>
+      <search>
+        <query>`aviatrix_l4` | stats count by host | rename host as gateway | sort gateway</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+    </input>
+  </fieldset>
+
+  <!-- KPI Row -->
+  <row>
+    <panel>
+      <title>Total Events</title>
+      <single>
+        <search>
+          <query>`aviatrix_firewall` host=$gateway$ | stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <refresh>5m</refresh>
+        </search>
+        <option name="colorMode">none</option>
+        <option name="drilldown">all</option>
+        <option name="numberPrecision">0</option>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="useColors">0</option>
+        <option name="useThousandSeparators">1</option>
+        <drilldown>
+          <link target="_blank">/app/$env:app$/traffic_analysis?form.time.earliest=$time.earliest$&amp;form.time.latest=$time.latest$</link>
+        </drilldown>
+      </single>
+    </panel>
+    <panel>
+      <title>Blocked Sessions</title>
+      <single>
+        <search>
+          <query>`aviatrix_blocked` host=$gateway$ | stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <refresh>5m</refresh>
+        </search>
+        <option name="colorMode">block</option>
+        <option name="drilldown">all</option>
+        <option name="numberPrecision">0</option>
+        <option name="rangeColors">["0x53a051","0xf8be34","0xdc4e41"]</option>
+        <option name="rangeValues">[100,1000]</option>
+        <option name="useColors">1</option>
+        <option name="useThousandSeparators">1</option>
+        <drilldown>
+          <link target="_blank">/app/$env:app$/traffic_analysis?form.time.earliest=$time.earliest$&amp;form.time.latest=$time.latest$&amp;form.action=blocked</link>
+        </drilldown>
+      </single>
+    </panel>
+    <panel>
+      <title>IDS Alerts</title>
+      <single>
+        <search>
+          <query>`aviatrix_ids_alerts` | stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <refresh>5m</refresh>
+        </search>
+        <option name="colorMode">block</option>
+        <option name="drilldown">all</option>
+        <option name="numberPrecision">0</option>
+        <option name="rangeColors">["0x53a051","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="rangeValues">[0,10,50]</option>
+        <option name="useColors">1</option>
+        <option name="useThousandSeparators">1</option>
+        <drilldown>
+          <link target="_blank">/app/$env:app$/threat_detection?form.time.earliest=$time.earliest$&amp;form.time.latest=$time.latest$</link>
+        </drilldown>
+      </single>
+    </panel>
+    <panel>
+      <title>Active Gateways</title>
+      <single>
+        <search>
+          <query>`aviatrix_gateway_network` | stats dc(gateway) as count</query>
+          <earliest>-15m</earliest>
+          <latest>now</latest>
+          <refresh>5m</refresh>
+        </search>
+        <option name="colorMode">none</option>
+        <option name="drilldown">all</option>
+        <option name="numberPrecision">0</option>
+        <option name="useColors">0</option>
+        <drilldown>
+          <link target="_blank">/app/$env:app$/gateway_health</link>
+        </drilldown>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Threat Timeline -->
+  <row>
+    <panel>
+      <title>Security Events Over Time</title>
+      <chart>
+        <search>
+          <query>`aviatrix_firewall` host=$gateway$
+| eval event_type=case(
+    sourcetype=="aviatrix:firewall:l4" AND action=="DENY", "L4 Blocked",
+    sourcetype=="aviatrix:firewall:l4" AND action=="PERMIT", "L4 Allowed",
+    sourcetype=="aviatrix:firewall:l7" AND action=="Deny", "L7 Blocked",
+    sourcetype=="aviatrix:firewall:l7" AND action=="Permit", "L7 Allowed",
+    sourcetype=="aviatrix:firewall:fqdn" AND state=="MATCHED", "FQDN Allowed",
+    sourcetype=="aviatrix:firewall:fqdn", "FQDN Blocked",
+    1=1, "Other"
+)
+| timechart count by event_type</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <refresh>5m</refresh>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">all</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.fieldColors">{"L4 Blocked": 0xDC4E41, "L7 Blocked": 0xF1813F, "FQDN Blocked": 0xF8BE34, "L4 Allowed": 0x53A051, "L7 Allowed": 0x0877A6, "FQDN Allowed": 0x6A5C9E}</option>
+        <option name="height">250</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Main Content Row -->
+  <row>
+    <panel>
+      <title>Top Blocked Destinations</title>
+      <table>
+        <search>
+          <query>`aviatrix_blocked` host=$gateway$
+| eval dest=coalesce(dst_ip, dest, dip)
+| eval hostname=coalesce(sni_hostname, hostname, dest)
+| stats count as "Block Count", dc(src_ip) as "Unique Sources", earliest(_time) as first_seen, latest(_time) as last_seen by dest, hostname
+| eval first_seen=strftime(first_seen, "%Y-%m-%d %H:%M:%S"), last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S")
+| sort - "Block Count"
+| head 10
+| table dest, hostname, "Block Count", "Unique Sources", first_seen, last_seen</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <refresh>5m</refresh>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">row</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="number" field="Block Count">
+          <option name="precision">0</option>
+        </format>
+        <format type="color" field="Block Count">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" midValue="50"></scale>
+        </format>
+        <drilldown>
+          <link target="_blank">/app/$env:app$/traffic_analysis?form.time.earliest=$time.earliest$&amp;form.time.latest=$time.latest$&amp;form.dest=$row.dest$</link>
+        </drilldown>
+      </table>
+    </panel>
+    <panel>
+      <title>Top IDS Signatures</title>
+      <chart>
+        <search>
+          <query>`aviatrix_ids_alerts`
+| stats count by signature, severity
+| sort - count
+| head 10</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <refresh>5m</refresh>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.drilldown">all</option>
+        <option name="charting.legend.placement">none</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.visibility">collapsed</option>
+        <option name="height">300</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/$env:app$/threat_detection?form.time.earliest=$time.earliest$&amp;form.time.latest=$time.latest$&amp;form.signature=$click.value$</link>
+        </drilldown>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Bottom Row -->
+  <row>
+    <panel>
+      <title>Policy Enforcement Summary</title>
+      <chart>
+        <search>
+          <query>`aviatrix_l4` host=$gateway$
+| eval action_label=if(action=="PERMIT", "Allowed", "Blocked")
+| stats count by action_label</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <refresh>5m</refresh>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">all</option>
+        <option name="charting.fieldColors">{"Allowed": 0x53A051, "Blocked": 0xDC4E41}</option>
+        <option name="height">250</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/$env:app$/policy_enforcement?form.time.earliest=$time.earliest$&amp;form.time.latest=$time.latest$</link>
+        </drilldown>
+      </chart>
+    </panel>
+    <panel>
+      <title>Top Accessed Domains (L7/FQDN)</title>
+      <chart>
+        <search>
+          <query>(`aviatrix_l7` OR `aviatrix_fqdn`) host=$gateway$
+| eval domain=coalesce(sni_hostname, hostname)
+| where isnotnull(domain)
+| stats count by domain
+| sort - count
+| head 10</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <refresh>5m</refresh>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.drilldown">all</option>
+        <option name="charting.legend.placement">none</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.visibility">collapsed</option>
+        <option name="height">250</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/$env:app$/egress_monitoring?form.time.earliest=$time.earliest$&amp;form.time.latest=$time.latest$&amp;form.domain=$click.value$</link>
+        </drilldown>
+      </chart>
+    </panel>
+    <panel>
+      <title>Gateway Block Rate</title>
+      <table>
+        <search>
+          <query>`aviatrix_l4`
+| eval blocked=if(action=="DENY", 1, 0)
+| stats sum(blocked) as blocked, count as total by host
+| eval block_rate=round(blocked/total*100, 1)
+| sort - block_rate
+| rename host as Gateway, blocked as "Blocked", total as "Total", block_rate as "Block Rate %"
+| table Gateway, Total, Blocked, "Block Rate %"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <refresh>5m</refresh>
+        </search>
+        <option name="count">5</option>
+        <option name="drilldown">row</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="Block Rate %">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#53A051"></colorPalette>
+          <scale type="minMidMax" minValue="0" midValue="10" maxValue="50"></scale>
+        </format>
+        <drilldown>
+          <link target="_blank">/app/$env:app$/traffic_analysis?form.time.earliest=$time.earliest$&amp;form.time.latest=$time.latest$&amp;form.gateway=$row.Gateway$</link>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Recent Activity -->
+  <row>
+    <panel>
+      <title>Recent Blocked Traffic (Last 50)</title>
+      <table>
+        <search>
+          <query>`aviatrix_blocked` host=$gateway$
+| eval src=coalesce(src_ip, src, sip)
+| eval dest=coalesce(dst_ip, dest, dip)
+| eval port=coalesce(dst_port, dest_port)
+| eval hostname=coalesce(sni_hostname, hostname, "-")
+| table _time, host, src, dest, port, proto, hostname
+| rename host as Gateway
+| head 50</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <refresh>5m</refresh>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">row</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="wrap">false</option>
+        <drilldown>
+          <link target="_blank">/app/$env:app$/search?q=search%20%60aviatrix_firewall%60%20src_ip%3D$row.src$%20dst_ip%3D$row.dest$&amp;earliest=$time.earliest$&amp;latest=$time.latest$</link>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+</form>

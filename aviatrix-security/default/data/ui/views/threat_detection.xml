@@ -1,0 +1,285 @@
+<form version="1.1" theme="dark">
+  <label>Threat Detection</label>
+  <description>Aviatrix IDS (Suricata) alert analysis and investigation</description>
+
+  <fieldset submitButton="false" autoRun="true">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="severity" searchWhenChanged="true">
+      <label>Severity</label>
+      <choice value="*">All Severities</choice>
+      <choice value="1">Critical (1)</choice>
+      <choice value="2">High (2)</choice>
+      <choice value="3">Medium (3)</choice>
+      <choice value="4">Low (4)</choice>
+      <default>*</default>
+    </input>
+    <input type="text" token="signature" searchWhenChanged="false">
+      <label>Signature Filter</label>
+      <default>*</default>
+    </input>
+    <input type="text" token="src_ip" searchWhenChanged="false">
+      <label>Source IP</label>
+      <default>*</default>
+    </input>
+    <input type="text" token="dest_ip" searchWhenChanged="false">
+      <label>Destination IP</label>
+      <default>*</default>
+    </input>
+  </fieldset>
+
+  <!-- KPI Row -->
+  <row>
+    <panel>
+      <title>Total Alerts</title>
+      <single>
+        <search>
+          <query>`aviatrix_ids_alerts` severity=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature$
+| stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">none</option>
+        <option name="useThousandSeparators">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Critical Alerts</title>
+      <single>
+        <search>
+          <query>`aviatrix_ids_alerts` severity=1 src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature$
+| stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">all</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x53a051","0xdc4e41"]</option>
+        <option name="rangeValues">[0]</option>
+        <option name="useColors">1</option>
+        <drilldown>
+          <set token="form.severity">1</set>
+        </drilldown>
+      </single>
+    </panel>
+    <panel>
+      <title>High Severity</title>
+      <single>
+        <search>
+          <query>`aviatrix_ids_alerts` severity=2 src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature$
+| stats count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">all</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x53a051","0xf1813f"]</option>
+        <option name="rangeValues">[0]</option>
+        <option name="useColors">1</option>
+        <drilldown>
+          <set token="form.severity">2</set>
+        </drilldown>
+      </single>
+    </panel>
+    <panel>
+      <title>Unique Signatures</title>
+      <single>
+        <search>
+          <query>`aviatrix_ids_alerts` severity=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature$
+| stats dc(signature)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">none</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Unique Sources</title>
+      <single>
+        <search>
+          <query>`aviatrix_ids_alerts` severity=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature$
+| stats dc(src_ip)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorMode">none</option>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Timeline and Severity -->
+  <row>
+    <panel>
+      <title>Alert Timeline by Severity</title>
+      <chart>
+        <search>
+          <query>`aviatrix_ids_alerts` severity=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature$
+| eval severity_label=case(severity=1, "1-Critical", severity=2, "2-High", severity=3, "3-Medium", severity=4, "4-Low", 1=1, "Other")
+| timechart count by severity_label</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.fieldColors">{"1-Critical": 0xDC4E41, "2-High": 0xF1813F, "3-Medium": 0xF8BE34, "4-Low": 0x53A051}</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Alert Categories</title>
+      <chart>
+        <search>
+          <query>`aviatrix_ids_alerts` severity=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature$
+| stats count by category
+| sort - count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">all</option>
+        <option name="height">250</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Signatures and Sources -->
+  <row>
+    <panel>
+      <title>Top Triggered Signatures</title>
+      <table>
+        <search>
+          <query>`aviatrix_ids_alerts` severity=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature$
+| stats count as Alerts, dc(src_ip) as "Unique Sources", dc(dest_ip) as "Unique Targets", values(category) as Categories by signature, signature_id, severity
+| sort - Alerts
+| head 20
+| rename signature as Signature, signature_id as SID, severity as Severity</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">row</option>
+        <format type="color" field="Severity">
+          <colorPalette type="map">{"1": 0xDC4E41, "2": 0xF1813F, "3": 0xF8BE34, "4": 0x53A051}</colorPalette>
+        </format>
+        <drilldown>
+          <set token="form.signature">$row.Signature$</set>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Investigation -->
+  <row>
+    <panel>
+      <title>Source IP Investigation</title>
+      <table>
+        <search>
+          <query>`aviatrix_ids_alerts` severity=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature$
+| stats count as Alerts, dc(signature) as "Unique Sigs", dc(dest_ip) as "Targets", values(category) as Categories by src_ip
+| sort - Alerts
+| head 20
+| rename src_ip as "Source IP"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">row</option>
+        <format type="color" field="Alerts">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" midValue="10"></scale>
+        </format>
+        <drilldown>
+          <set token="form.src_ip">$row.Source IP$</set>
+        </drilldown>
+      </table>
+    </panel>
+    <panel>
+      <title>Target Investigation</title>
+      <table>
+        <search>
+          <query>`aviatrix_ids_alerts` severity=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature$
+| stats count as Alerts, dc(signature) as "Unique Sigs", dc(src_ip) as "Attackers", values(category) as Categories by dest_ip
+| sort - Alerts
+| head 20
+| rename dest_ip as "Target IP"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">row</option>
+        <format type="color" field="Alerts">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" midValue="10"></scale>
+        </format>
+        <drilldown>
+          <set token="form.dest_ip">$row.Target IP$</set>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+
+  <!-- HTTP Analysis -->
+  <row>
+    <panel>
+      <title>HTTP Details (where available)</title>
+      <table>
+        <search>
+          <query>`aviatrix_ids_alerts` severity=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature$
+| where isnotnull(http_method)
+| table _time, src_ip, dest_ip, http_method, http_hostname, http_url, http_user_agent, signature
+| head 100
+| rename src_ip as "Source", dest_ip as "Destination", http_method as "Method", http_hostname as "Host", http_url as "URL", http_user_agent as "User-Agent", signature as "Signature"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">row</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Raw Events -->
+  <row>
+    <panel>
+      <title>Alert Events</title>
+      <event>
+        <search>
+          <query>`aviatrix_ids_alerts` severity=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature$</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="list.drilldown">full</option>
+        <option name="list.wrap">1</option>
+        <option name="maxLines">5</option>
+        <option name="raw.drilldown">full</option>
+        <option name="rowNumbers">0</option>
+        <option name="table.drilldown">all</option>
+        <option name="type">list</option>
+      </event>
+    </panel>
+  </row>
+</form>
