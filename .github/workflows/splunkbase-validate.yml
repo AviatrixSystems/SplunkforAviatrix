@@ -8,10 +8,7 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        app: [TA-aviatrix, aviatrix-security]
-    name: Validate ${{ matrix.app }}
+    name: Package & Validate
 
     steps:
       - name: Checkout
@@ -25,15 +22,28 @@ jobs:
       - name: Install tools
         run: pip install splunk-packaging-toolkit splunk-appinspect
 
-      - name: Package
-        run: slim package ${{ matrix.app }}
+      - name: Package TA-aviatrix
+        run: slim package TA-aviatrix
 
-      - name: Run AppInspect
-        run: splunk-appinspect inspect ${{ matrix.app }}-*.tar.gz --mode precert --included-tags cloud
+      - name: Package aviatrix-security
+        run: slim package aviatrix-security
 
-      - name: Upload artifact
+      - name: AppInspect TA-aviatrix
+        run: splunk-appinspect inspect TA-aviatrix-*.tar.gz --mode precert --included-tags cloud
+
+      - name: AppInspect aviatrix-security
+        run: splunk-appinspect inspect aviatrix-security-*.tar.gz --mode precert --included-tags cloud
+
+      - name: Upload TA-aviatrix package
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.app }}-package
-          path: ${{ matrix.app }}-*.tar.gz
+          name: TA-aviatrix-package
+          path: TA-aviatrix-*.tar.gz
+          retention-days: 30
+
+      - name: Upload aviatrix-security package
+        uses: actions/upload-artifact@v4
+        with:
+          name: aviatrix-security-package
+          path: aviatrix-security-*.tar.gz
           retention-days: 30
