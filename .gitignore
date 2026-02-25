@@ -12,11 +12,14 @@ __pycache__/
 venv/
 .venv/
 
-# IDE
+# IDE and tools
 .idea/
 .vscode/
 *.swp
 *.swo
+.claude/
+.serena/
+.playwright-mcp/
 
 # OS
 .DS_Store
