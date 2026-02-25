@@ -1,0 +1,52 @@
+name: Splunkbase Validation
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    name: Package & Validate
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install tools
+        run: pip install splunk-packaging-toolkit splunk-appinspect
+
+      - name: Package TA-aviatrix
+        run: |
+          slim package TA-aviatrix
+          mkdir -p .slim-repo
+          cp TA-aviatrix-*.tar.gz .slim-repo/TA-aviatrix
+
+      - name: Package aviatrix-security
+        run: slim package aviatrix-security -r .slim-repo
+
+      - name: AppInspect TA-aviatrix
+        run: splunk-appinspect inspect TA-aviatrix-*.tar.gz --mode precert --included-tags cloud
+
+      - name: AppInspect aviatrix-security
+        run: splunk-appinspect inspect aviatrix-security-*.tar.gz --mode precert --included-tags cloud
+
+      - name: Upload TA-aviatrix package
+        uses: actions/upload-artifact@v4
+        with:
+          name: TA-aviatrix-package
+          path: TA-aviatrix-*.tar.gz
+          retention-days: 30
+
+      - name: Upload aviatrix-security package
+        uses: actions/upload-artifact@v4
+        with:
+          name: aviatrix-security-package
+          path: aviatrix-security-*.tar.gz
+          retention-days: 30
