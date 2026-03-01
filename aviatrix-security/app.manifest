@@ -38,19 +38,13 @@
       "uri": null
     }
   },
-  "dependencies": {
-    "TA-aviatrix": {
-      "version": ">=2.0.0",
-      "package": "TA-aviatrix",
-      "optional": false
-    }
-  },
+  "dependencies": null,
   "tasks": null,
   "inputGroups": null,
   "incompatibleApps": null,
   "platformRequirements": {
     "splunk": {
-      "Enterprise": ">=8.0"
+      "Enterprise": ">=9.0"
     }
   },
   "supportedDeployments": [
