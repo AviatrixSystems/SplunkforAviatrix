@@ -45,10 +45,14 @@ Pre-built dashboards for monitoring Aviatrix Cloud Firewall activity.
 - **Gateway Health** -- CPU, memory, disk, network throughput per gateway
 - **Audit Trail** -- Controller API changes, user activity, success/failure tracking
 
+## Log Ingestion
+
+These apps are designed to work with the [Aviatrix SIEM Connector](https://github.com/AviatrixSystems/aviatrix-siem-connector), which parses Aviatrix Syslog messages and posts them to Splunk via HEC (HTTP Event Collector).
+
 ## Requirements
 
 - Splunk Enterprise 8.0+ or Splunk Cloud
-- Aviatrix Controller with logging configured to send via HEC
+- [Aviatrix SIEM Connector](https://github.com/AviatrixSystems/aviatrix-siem-connector) for log ingestion
 - CIM Add-on 4.0+ (for data model acceleration)
 
 ## Installation
