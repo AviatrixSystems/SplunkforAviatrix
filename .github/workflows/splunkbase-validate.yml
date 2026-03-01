@@ -31,6 +31,12 @@ jobs:
       - name: Package aviatrix-security
         run: slim package aviatrix-security -r .slim-repo
 
+      - name: Validate TA-aviatrix manifest
+        run: slim validate TA-aviatrix
+
+      - name: Validate aviatrix-security manifest
+        run: slim validate aviatrix-security
+
       - name: AppInspect TA-aviatrix
         run: splunk-appinspect inspect TA-aviatrix-*.tar.gz --mode precert --included-tags cloud
 
