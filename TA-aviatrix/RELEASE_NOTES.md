@@ -1,5 +1,9 @@
 # Aviatrix Add-on for Splunk - Release Notes
 
+## Version 2.0.1
+
+- **IDS (Suricata)**: Support raw EVE JSON with nested `alert.*`, `http.*`, and `flow.*` objects. New search-time field aliases flatten `alert.signature`, `alert.severity`, `alert.category`, `alert.signature_id`, `alert.action`, HTTP, and flow byte fields to the top-level names used by dashboards, lookups, and CIM mappings. Legacy pre-flattened events continue to work unchanged.
+
 ## Version 2.0.0
 
 Initial release with support for Aviatrix Distributed Cloud Firewall:
