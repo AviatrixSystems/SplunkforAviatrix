@@ -4,7 +4,7 @@ Security visibility and analytics app for Aviatrix Distributed Cloud Firewall. P
 
 ## Prerequisites
 
-- **Aviatrix Add-on for Splunk** (`TA-aviatrix`) version 2.0.0 or later must be installed.
+- **Aviatrix Add-on for Splunk** (`TA-aviatrix`) version 2.0.0 or later must be installed (2.0.2 or later recommended).
 
 ## Dashboards
 
@@ -46,7 +46,7 @@ By default, dashboards query `index=main`. To change this, edit the `aviatrix_in
 
 - Splunk Enterprise 8.0+
 - Splunk Cloud
-- Requires Aviatrix Add-on for Splunk (TA-aviatrix) >= 2.0.0
+- Requires Aviatrix Add-on for Splunk (TA-aviatrix) >= 2.0.0. If you upgrade the add-on to 2.0.2, upgrade this app to 2.0.1 or later.
 
 ## License
 

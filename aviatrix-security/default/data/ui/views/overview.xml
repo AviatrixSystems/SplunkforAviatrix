@@ -18,9 +18,9 @@
       <fieldForLabel>gateway</fieldForLabel>
       <fieldForValue>gateway</fieldForValue>
       <search>
-        <query>`aviatrix_l4` | stats count by host | rename host as gateway | sort gateway</query>
-        <earliest>-24h@h</earliest>
-        <latest>now</latest>
+        <query>`aviatrix_firewall` | stats count by host | rename host as gateway | sort gateway</query>
+        <earliest>$time.earliest$</earliest>
+        <latest>$time.latest$</latest>
       </search>
     </input>
   </fieldset>
@@ -116,13 +116,14 @@
       <chart>
         <search>
           <query>`aviatrix_firewall` host=$gateway$
+| eval act=`aviatrix_traffic_action`
 | eval event_type=case(
-    sourcetype=="aviatrix:firewall:l4" AND action=="DENY", "L4 Blocked",
-    sourcetype=="aviatrix:firewall:l4" AND action=="PERMIT", "L4 Allowed",
-    sourcetype=="aviatrix:firewall:l7" AND action=="Deny", "L7 Blocked",
-    sourcetype=="aviatrix:firewall:l7" AND action=="Permit", "L7 Allowed",
-    sourcetype=="aviatrix:firewall:fqdn" AND state=="MATCHED", "FQDN Allowed",
-    sourcetype=="aviatrix:firewall:fqdn", "FQDN Blocked",
+    sourcetype=="aviatrix:firewall:l4" AND act=="blocked", "L4 Blocked",
+    sourcetype=="aviatrix:firewall:l4" AND act=="allowed", "L4 Allowed",
+    sourcetype=="aviatrix:firewall:l7" AND act=="blocked", "L7 Blocked",
+    sourcetype=="aviatrix:firewall:l7" AND act=="allowed", "L7 Allowed",
+    sourcetype=="aviatrix:firewall:fqdn" AND act=="allowed", "FQDN Allowed",
+    sourcetype=="aviatrix:firewall:fqdn" AND act=="blocked", "FQDN Blocked",
     1=1, "Other"
 )
 | timechart count by event_type</query>
@@ -180,7 +181,7 @@
       <chart>
         <search>
           <query>`aviatrix_ids_alerts`
-| stats count by signature, severity
+| stats count by signature
 | sort - count
 | head 10</query>
           <earliest>$time.earliest$</earliest>
@@ -208,7 +209,8 @@
       <chart>
         <search>
           <query>`aviatrix_l4` host=$gateway$
-| eval action_label=if(action=="PERMIT", "Allowed", "Blocked")
+| eval act=`aviatrix_traffic_action`
+| eval action_label=case(act=="allowed", "Allowed", act=="blocked", "Blocked", 1=1, "Other")
 | stats count by action_label</query>
           <earliest>$time.earliest$</earliest>
           <latest>$time.latest$</latest>
@@ -228,7 +230,7 @@
       <title>Top Accessed Domains (L7/FQDN)</title>
       <chart>
         <search>
-          <query>(`aviatrix_l7` OR `aviatrix_fqdn`) host=$gateway$
+          <query>`aviatrix_index` (sourcetype="aviatrix:firewall:l7" OR sourcetype="aviatrix:firewall:fqdn") host=$gateway$
 | eval domain=coalesce(sni_hostname, hostname)
 | where isnotnull(domain)
 | stats count by domain
@@ -246,7 +248,7 @@
         <option name="height">250</option>
         <option name="refresh.display">progressbar</option>
         <drilldown>
-          <link target="_blank">/app/$env:app$/egress_monitoring?form.time.earliest=$time.earliest$&amp;form.time.latest=$time.latest$&amp;form.domain=$click.value$</link>
+          <link target="_blank">/app/$env:app$/policy_enforcement?form.time.earliest=$time.earliest$&amp;form.time.latest=$time.latest$&amp;form.domain_filter=$click.value$</link>
         </drilldown>
       </chart>
     </panel>
@@ -255,7 +257,7 @@
       <table>
         <search>
           <query>`aviatrix_l4`
-| eval blocked=if(action=="DENY", 1, 0)
+| eval blocked=if(`aviatrix_traffic_action`=="blocked", 1, 0)
 | stats sum(blocked) as blocked, count as total by host
 | eval block_rate=round(blocked/total*100, 1)
 | sort - block_rate
@@ -302,7 +304,7 @@
         <option name="refresh.display">progressbar</option>
         <option name="wrap">false</option>
         <drilldown>
-          <link target="_blank">/app/$env:app$/search?q=search%20%60aviatrix_firewall%60%20src_ip%3D$row.src$%20dst_ip%3D$row.dest$&amp;earliest=$time.earliest$&amp;latest=$time.latest$</link>
+          <link target="_blank">/app/$env:app$/search?q=search%20%60aviatrix_firewall%60%20src%3D$row.src$%20dest%3D$row.dest$&amp;earliest=$time.earliest$&amp;latest=$time.latest$</link>
         </drilldown>
       </table>
     </panel>

@@ -18,8 +18,8 @@
       <fieldForValue>gateway</fieldForValue>
       <search>
         <query>`aviatrix_gateway_system` | stats count by gateway | sort gateway</query>
-        <earliest>-24h@h</earliest>
-        <latest>now</latest>
+        <earliest>$time.earliest$</earliest>
+        <latest>$time.latest$</latest>
       </search>
     </input>
   </fieldset>
@@ -116,7 +116,8 @@
       <chart>
         <search>
           <query>`aviatrix_gateway_network` gateway=$gateway$
-| eval rx_rate=if(match(total_rx_rate, "Kb$$"), tonumber(replace(total_rx_rate, "Kb$$", "")), tonumber(total_rx_rate)/1024)
+| rex field=syslog "total_rx_rate=(?&lt;v&gt;[\d.]+)(?&lt;u&gt;[KMG]?b)\b"
+| eval rx_rate=coalesce(rx_kbps, round(tonumber(v) * case(u=="Gb", 1048576, u=="Mb", 1024, u=="Kb", 1, u=="b", 1/1024), 2))
 | timechart avg(rx_rate) as "RX Kbps" by gateway</query>
           <earliest>$time.earliest$</earliest>
           <latest>$time.latest$</latest>
@@ -133,7 +134,8 @@
       <chart>
         <search>
           <query>`aviatrix_gateway_network` gateway=$gateway$
-| eval tx_rate=if(match(total_tx_rate, "Kb$$"), tonumber(replace(total_tx_rate, "Kb$$", "")), tonumber(total_tx_rate)/1024)
+| rex field=syslog "total_tx_rate=(?&lt;v&gt;[\d.]+)(?&lt;u&gt;[KMG]?b)\b"
+| eval tx_rate=coalesce(tx_kbps, round(tonumber(v) * case(u=="Gb", 1048576, u=="Mb", 1024, u=="Kb", 1, u=="b", 1/1024), 2))
 | timechart avg(tx_rate) as "TX Kbps" by gateway</query>
           <earliest>$time.earliest$</earliest>
           <latest>$time.latest$</latest>

@@ -1,6 +1,6 @@
 <form version="1.1" theme="dark">
   <label>Audit Trail</label>
-  <description>Aviatrix Controller change tracking and audit log analysis</description>
+  <description>Aviatrix Controller change tracking: who created, modified or deleted what, and whether it succeeded</description>
 
   <fieldset submitButton="false" autoRun="true">
     <input type="time" token="time" searchWhenChanged="true">
@@ -10,75 +10,124 @@
         <latest>now</latest>
       </default>
     </input>
+    <input type="dropdown" token="change_filter" searchWhenChanged="true">
+      <label>Operation</label>
+      <choice value="NOT change_action=read">Changes (exclude reads)</choice>
+      <choice value="change_action=*">All operations</choice>
+      <choice value="change_action=created">Created</choice>
+      <choice value="change_action=modified">Modified</choice>
+      <choice value="change_action=deleted">Deleted</choice>
+      <choice value="change_action=read">Read only</choice>
+      <default>NOT change_action=read</default>
+    </input>
     <input type="dropdown" token="result" searchWhenChanged="true">
       <label>Result</label>
       <choice value="*">All</choice>
-      <choice value="Success">Success</choice>
+      <choice value="success">Success</choice>
       <choice value="failure">Failure</choice>
       <default>*</default>
     </input>
-    <input type="text" token="user" searchWhenChanged="false">
-      <label>User Filter</label>
+    <input type="text" token="user" searchWhenChanged="true">
+      <label>User</label>
       <default>*</default>
     </input>
-    <input type="text" token="action_filter" searchWhenChanged="false">
-      <label>Action Filter</label>
+    <input type="text" token="category" searchWhenChanged="true">
+      <label>Object Category</label>
+      <default>*</default>
+    </input>
+    <input type="text" token="action_filter" searchWhenChanged="true">
+      <label>Command Filter</label>
       <default>*</default>
     </input>
   </fieldset>
 
+  <!-- One search feeds every panel -->
+  <search id="audit_base">
+    <query>`aviatrix_audit`
+| `aviatrix_audit_fields`
+| search username=$user|s$ command=$action_filter|s$ $change_filter$
+| where ("$result$"="*" OR result_status="$result$") AND ("$category$"="*" OR object_category="$category$")
+| eval command_group=if(match(command, "^/"), replace(replace(command, "[ ?].*$", ""), "/([0-9a-fA-F]{8}-[0-9a-fA-F-]{27}|[0-9a-fA-F]{24})(/|$)", "/{id}\2"), command)
+| fields _time, username, src, change_action, object_category, object, command, command_group, result, result_status, reason</query>
+    <earliest>$time.earliest$</earliest>
+    <latest>$time.latest$</latest>
+  </search>
+
   <!-- KPI Row -->
   <row>
     <panel>
-      <title>Total Changes</title>
+      <title>Total Operations</title>
       <single>
-        <search>
-          <query>`aviatrix_audit` username=$user$
-| search action=$action_filter$
-| where "$result$"="*" OR result="$result$" OR (result!="Success" AND "$result$"="failure")
-| stats count</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
+        <search base="audit_base">
+          <query>stats count</query>
         </search>
-        <option name="drilldown">none</option>
+        <option name="colorMode">none</option>
+        <option name="useColors">0</option>
+        <option name="numberPrecision">0</option>
         <option name="useThousandSeparators">1</option>
       </single>
     </panel>
     <panel>
-      <title>Successful Operations</title>
+      <title>Created</title>
       <single>
-        <search>
-          <query>`aviatrix_audit` username=$user$ result="Success"
-| search action=$action_filter$
-| stats count</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
+        <search base="audit_base">
+          <query>where change_action="created" | stats count</query>
         </search>
+        <option name="colorMode">none</option>
         <option name="drilldown">all</option>
-        <option name="colorMode">block</option>
-        <option name="rangeColors">["0x53a051","0x53a051"]</option>
-        <option name="rangeValues">[0]</option>
-        <option name="useColors">1</option>
+        <option name="useColors">0</option>
+        <option name="numberPrecision">0</option>
+        <option name="useThousandSeparators">1</option>
         <drilldown>
-          <set token="form.result">Success</set>
+          <set token="form.change_filter">change_action=created</set>
         </drilldown>
       </single>
     </panel>
     <panel>
-      <title>Failed Operations</title>
+      <title>Modified</title>
       <single>
-        <search>
-          <query>`aviatrix_audit` username=$user$ result!="Success"
-| search action=$action_filter$
-| stats count</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
+        <search base="audit_base">
+          <query>where change_action="modified" | stats count</query>
         </search>
+        <option name="colorMode">none</option>
         <option name="drilldown">all</option>
+        <option name="useColors">0</option>
+        <option name="numberPrecision">0</option>
+        <option name="useThousandSeparators">1</option>
+        <drilldown>
+          <set token="form.change_filter">change_action=modified</set>
+        </drilldown>
+      </single>
+    </panel>
+    <panel>
+      <title>Deleted</title>
+      <single>
+        <search base="audit_base">
+          <query>where change_action="deleted" | stats count</query>
+        </search>
+        <option name="colorMode">none</option>
+        <option name="drilldown">all</option>
+        <option name="useColors">0</option>
+        <option name="numberPrecision">0</option>
+        <option name="useThousandSeparators">1</option>
+        <drilldown>
+          <set token="form.change_filter">change_action=deleted</set>
+        </drilldown>
+      </single>
+    </panel>
+    <panel>
+      <title>Failed</title>
+      <single>
+        <search base="audit_base">
+          <query>where result_status="failure" | stats count</query>
+        </search>
         <option name="colorMode">block</option>
+        <option name="drilldown">all</option>
+        <option name="numberPrecision">0</option>
         <option name="rangeColors">["0x53a051","0xf8be34","0xdc4e41"]</option>
-        <option name="rangeValues">[0,5]</option>
+        <option name="rangeValues">[0,10]</option>
         <option name="useColors">1</option>
+        <option name="useThousandSeparators">1</option>
         <drilldown>
           <set token="form.result">failure</set>
         </drilldown>
@@ -87,15 +136,12 @@
     <panel>
       <title>Unique Users</title>
       <single>
-        <search>
-          <query>`aviatrix_audit` username=$user$
-| search action=$action_filter$
-| where "$result$"="*" OR result="$result$" OR (result!="Success" AND "$result$"="failure")
-| stats dc(username)</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
+        <search base="audit_base">
+          <query>stats dc(username)</query>
         </search>
-        <option name="drilldown">none</option>
+        <option name="colorMode">none</option>
+        <option name="useColors">0</option>
+        <option name="numberPrecision">0</option>
       </single>
     </panel>
   </row>
@@ -103,73 +149,82 @@
   <!-- Timeline -->
   <row>
     <panel>
-      <title>Activity Over Time</title>
+      <title>Operations Over Time</title>
       <chart>
-        <search>
-          <query>`aviatrix_audit` username=$user$
-| search action=$action_filter$
-| where "$result$"="*" OR result="$result$" OR (result!="Success" AND "$result$"="failure")
-| eval status=if(result="Success", "Success", "Failed")
-| timechart count by status</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
+        <search base="audit_base">
+          <query>timechart count by change_action</query>
         </search>
         <option name="charting.chart">column</option>
         <option name="charting.chart.stackMode">stacked</option>
         <option name="charting.drilldown">none</option>
         <option name="charting.legend.placement">bottom</option>
-        <option name="charting.fieldColors">{"Success": 0x53A051, "Failed": 0xDC4E41}</option>
-        <option name="height">200</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.fieldColors">{"created": 0x53A051, "modified": 0x0877A6, "deleted": 0xDC4E41, "read": 0x708794, "unknown": 0x6A5C9E}</option>
+        <option name="height">250</option>
       </chart>
     </panel>
-  </row>
-
-  <!-- User and Action Analysis -->
-  <row>
     <panel>
       <title>Activity by User</title>
       <chart>
-        <search>
-          <query>`aviatrix_audit` username=$user$
-| eval username=if(match(username, "^%\{"), "unknown", username)
-| search action=$action_filter$
-| where "$result$"="*" OR result="$result$" OR (result!="Success" AND "$result$"="failure")
-| stats count by username
-| sort - count
+        <search base="audit_base">
+          <query>chart count over username by change_action
+| addtotals fieldname=_total
+| sort - _total
 | head 10</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
         </search>
         <option name="charting.chart">bar</option>
+        <option name="charting.chart.stackMode">stacked</option>
         <option name="charting.drilldown">all</option>
-        <option name="charting.legend.placement">none</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.visibility">collapsed</option>
+        <option name="charting.fieldColors">{"created": 0x53A051, "modified": 0x0877A6, "deleted": 0xDC4E41, "read": 0x708794, "unknown": 0x6A5C9E}</option>
         <option name="height">250</option>
         <drilldown>
           <set token="form.user">$click.value$</set>
         </drilldown>
       </chart>
     </panel>
+  </row>
+
+  <!-- What changed -->
+  <row>
     <panel>
-      <title>Action Types</title>
+      <title>Changes by Object Category</title>
       <chart>
-        <search>
-          <query>`aviatrix_audit` username=$user$
-| search action=$action_filter$
-| where "$result$"="*" OR result="$result$" OR (result!="Success" AND "$result$"="failure")
-| rex field=action "^(?&lt;action_type&gt;[^/]+)"
-| stats count by action_type
+        <search base="audit_base">
+          <query>stats count by object_category
 | sort - count
-| head 15</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
+| head 12</query>
         </search>
         <option name="charting.chart">pie</option>
         <option name="charting.drilldown">all</option>
-        <option name="height">250</option>
+        <option name="height">300</option>
         <drilldown>
-          <set token="form.action_filter">*$click.value$*</set>
+          <set token="form.category">$click.value$</set>
         </drilldown>
       </chart>
+    </panel>
+    <panel>
+      <title>Top Commands</title>
+      <table>
+        <search base="audit_base">
+          <query>stats count as Count, values(change_action) as Operation, count(eval(result_status="failure")) as Failed, dc(username) as Users, latest(_time) as last_seen by command_group
+| eval last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S")
+| sort - Count
+| head 20
+| rename command_group as Command, last_seen as "Last Seen"</query>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">row</option>
+        <format type="color" field="Failed">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax" minValue="0"></scale>
+        </format>
+        <drilldown>
+          <set token="form.action_filter">$row.Command$</set>
+        </drilldown>
+      </table>
     </panel>
   </row>
 
@@ -178,22 +233,20 @@
     <panel>
       <title>Policy/Security Changes</title>
       <table>
-        <search>
-          <query>`aviatrix_audit` username=$user$ (action="*microseg*" OR action="*policy*" OR action="*rule*" OR action="*firewall*")
-| eval username=if(match(username, "^%\{"), "unknown", username)
-| search action=$action_filter$
-| where "$result$"="*" OR result="$result$" OR (result!="Success" AND "$result$"="failure")
-| table _time, username, action, result, reason
+        <search base="audit_base">
+          <query>where change_action!="read" AND (match(lower(command), "microseg|policy|rule|firewall|firenet|app-domains|smart") OR object_category IN ("microseg", "app-domains", "firenet"))
+| table _time, username, src, change_action, object, result, reason
 | head 100
-| rename username as User, action as Action, result as Result, reason as Details</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
+| rename username as User, src as Source, change_action as Operation, object as Object, result as Result, reason as Details</query>
         </search>
         <option name="count">10</option>
-        <option name="drilldown">row</option>
-        <option name="wrap">true</option>
+        <option name="drilldown">none</option>
+        <option name="wrap">false</option>
+        <format type="color" field="Operation">
+          <colorPalette type="map">{"created": 0x53A051, "modified": 0x0877A6, "deleted": 0xDC4E41}</colorPalette>
+        </format>
         <format type="color" field="Result">
-          <colorPalette type="map">{"Success": 0x53A051}</colorPalette>
+          <colorPalette type="map">{"Success": 0x53A051, "200 OK": 0x53A051, "201 CREATED": 0x53A051, "204 NO CONTENT": 0x53A051, "Fail": 0xDC4E41, "400 BAD REQUEST": 0xDC4E41}</colorPalette>
         </format>
       </table>
     </panel>
@@ -204,25 +257,22 @@
     <panel>
       <title>Audit Log Events</title>
       <table>
-        <search>
-          <query>`aviatrix_audit` username=$user$
-| eval username=if(match(username, "^%\{"), "unknown", username)
-| search action=$action_filter$
-| where "$result$"="*" OR result="$result$" OR (result!="Success" AND "$result$"="failure")
-| table _time, username, action, result, reason
+        <search base="audit_base">
+          <query>table _time, username, src, change_action, object_category, command, result, reason
 | head 500
-| rename username as User, action as Action, result as Result, reason as Details</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
+| rename username as User, src as Source, change_action as Operation, object_category as Category, command as Command, result as Result, reason as Details</query>
         </search>
         <option name="count">20</option>
         <option name="drilldown">row</option>
-        <option name="wrap">true</option>
+        <option name="wrap">false</option>
+        <format type="color" field="Operation">
+          <colorPalette type="map">{"created": 0x53A051, "modified": 0x0877A6, "deleted": 0xDC4E41}</colorPalette>
+        </format>
         <format type="color" field="Result">
-          <colorPalette type="map">{"Success": 0x53A051, "201 CREATED": 0x53A051, "200 OK": 0x53A051}</colorPalette>
+          <colorPalette type="map">{"Success": 0x53A051, "200 OK": 0x53A051, "201 CREATED": 0x53A051, "204 NO CONTENT": 0x53A051, "Fail": 0xDC4E41, "400 BAD REQUEST": 0xDC4E41}</colorPalette>
         </format>
         <drilldown>
-          <link target="_blank">/app/$env:app$/search?q=search%20%60aviatrix_audit%60%20username%3D%22$row.User$%22%20action%3D%22$row.Action$%22&amp;earliest=$time.earliest$&amp;latest=$time.latest$</link>
+          <link target="_blank">/app/$env:app$/search?q=search%20%60aviatrix_audit%60%20%7C%20%60aviatrix_audit_fields%60%20%7C%20search%20username%3D%22$row.User$%22%20command%3D%22$row.Command$%22&amp;earliest=$time.earliest$&amp;latest=$time.latest$</link>
         </drilldown>
       </table>
     </panel>

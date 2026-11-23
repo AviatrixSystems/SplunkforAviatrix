@@ -1,6 +1,6 @@
 <form version="1.1" theme="dark">
   <label>L7 Firewall Activity</label>
-  <description>Distributed Cloud Firewall L7 policy activity, domain analysis, and threat investigation</description>
+  <description>Distributed Cloud Firewall L7 policy verdicts, domain analysis, and threat investigation. Verdicts include denies from rules in monitor mode (not enforced); use Enforcement Mode to separate them.</description>
 
   <fieldset submitButton="true" autoRun="true">
     <input type="time" token="time" searchWhenChanged="true">
@@ -18,15 +18,15 @@
       <fieldForValue>gateway</fieldForValue>
       <search>
         <query>`aviatrix_l7` | stats count by host | rename host as gateway | sort gateway</query>
-        <earliest>-24h@h</earliest>
-        <latest>now</latest>
+        <earliest>$time.earliest$</earliest>
+        <latest>$time.latest$</latest>
       </search>
     </input>
     <input type="dropdown" token="action" searchWhenChanged="true">
-      <label>Action</label>
+      <label>Policy Verdict</label>
       <choice value="*">All</choice>
-      <choice value="allowed">Allowed</choice>
-      <choice value="blocked">Blocked</choice>
+      <choice value="allowed">Permit</choice>
+      <choice value="blocked">Deny</choice>
       <default>*</default>
     </input>
     <input type="dropdown" token="enforced" searchWhenChanged="true">
@@ -49,7 +49,7 @@
       <single>
         <search>
           <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| search sni_hostname=$domain_filter$
+| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
 | stats count</query>
           <earliest>$time.earliest$</earliest>
           <latest>$time.latest$</latest>
@@ -59,11 +59,11 @@
       </single>
     </panel>
     <panel>
-      <title>Total Blocks</title>
+      <title>Deny Verdicts</title>
       <single>
         <search>
           <query>`aviatrix_l7` host=$gateway$ action_cim=blocked enforced=$enforced$
-| search sni_hostname=$domain_filter$
+| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
 | stats count</query>
           <earliest>$time.earliest$</earliest>
           <latest>$time.latest$</latest>
@@ -84,7 +84,7 @@
       <single>
         <search>
           <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| search sni_hostname=$domain_filter$
+| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
 | stats dc(sni_hostname)</query>
           <earliest>$time.earliest$</earliest>
           <latest>$time.latest$</latest>
@@ -97,7 +97,7 @@
       <single>
         <search>
           <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| search sni_hostname=$domain_filter$
+| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
 | stats dc(src_ip)</query>
           <earliest>$time.earliest$</earliest>
           <latest>$time.latest$</latest>
@@ -110,7 +110,7 @@
       <single>
         <search>
           <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| search sni_hostname=$domain_filter$
+| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
 | stats dc(decided_by)</query>
           <earliest>$time.earliest$</earliest>
           <latest>$time.latest$</latest>
@@ -127,7 +127,7 @@
       <chart>
         <search>
           <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| search sni_hostname=$domain_filter$
+| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
 | eval action_label=if(action_cim=="allowed", "Allowed", "Blocked")
 | timechart count by action_label</query>
           <earliest>$time.earliest$</earliest>
@@ -146,10 +146,10 @@
       <chart>
         <search>
           <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| search sni_hostname=$domain_filter$
+| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
 | eval direction=case(
-    match(src_ip, "^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\.|^192\.168\.|^100\.64\.") AND match(dest_ip, "^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\.|^192\.168\.|^100\.64\."), "East-West",
-    match(src_ip, "^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\.|^192\.168\.|^100\.64\."), "Egress",
+    match(src_ip, "^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\.|^192\.168\.|^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.") AND match(dest_ip, "^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\.|^192\.168\.|^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\."), "East-West",
+    match(src_ip, "^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\.|^192\.168\.|^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\."), "Egress",
     1=1, "Ingress"
 )
 | stats count by direction</query>
@@ -167,7 +167,7 @@
       <chart>
         <search>
           <query>`aviatrix_l7` host=$gateway$ action_cim=$action$
-| search sni_hostname=$domain_filter$
+| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
 | eval mode=if(enforced=="true", "Enforced", "Monitor")
 | stats count by mode</query>
           <earliest>$time.earliest$</earliest>
@@ -178,10 +178,10 @@
         <option name="charting.fieldColors">{"Enforced": 0x53A051, "Monitor": 0xF8BE34}</option>
         <option name="height">250</option>
         <drilldown>
-          <condition value="Enforced">
+          <condition match="$click.value$ == &quot;Enforced&quot;">
             <set token="form.enforced">true</set>
           </condition>
-          <condition value="Monitor">
+          <condition match="$click.value$ == &quot;Monitor&quot;">
             <set token="form.enforced">false</set>
           </condition>
         </drilldown>
@@ -196,7 +196,7 @@
       <chart>
         <search>
           <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| search sni_hostname=$domain_filter$
+| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
 | stats count by sni_hostname
 | sort - count
 | head 15
@@ -209,16 +209,16 @@
         <option name="charting.legend.placement">none</option>
         <option name="height">350</option>
         <drilldown>
-          <set token="form.domain_filter">$click.name$</set>
+          <set token="form.domain_filter">$click.value$</set>
         </drilldown>
       </chart>
     </panel>
     <panel>
-      <title>Top Blocked Domains</title>
+      <title>Top Denied Domains</title>
       <table>
         <search>
           <query>`aviatrix_l7` host=$gateway$ action_cim=blocked enforced=$enforced$
-| search sni_hostname=$domain_filter$
+| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
 | stats count as "Block Count", dc(src_ip) as "Unique Sources", values(decided_by) as Policies, latest(_time) as last_seen by sni_hostname
 | eval last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S")
 | sort - "Block Count"
@@ -250,7 +250,7 @@
       <table>
         <search>
           <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| search sni_hostname=$domain_filter$
+| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
 | stats count as Sessions, dc(sni_hostname) as "Unique Domains", values(sni_hostname) as "Top Domains" by src_ip
 | sort - Sessions
 | head 20
@@ -270,7 +270,7 @@
       <table>
         <search>
           <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| search sni_hostname=$domain_filter$
+| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
 | stats count as Hits, count(eval(action_cim=="blocked")) as Blocked, count(eval(action_cim=="allowed")) as Allowed, dc(sni_hostname) as "Unique Domains", dc(src_ip) as "Unique Sources" by decided_by
 | eval "Block Rate"=round(Blocked/Hits*100, 1)."%"
 | sort - Hits
@@ -302,7 +302,7 @@
       <table>
         <search>
           <query>`aviatrix_l7` host=$gateway$ action_cim=blocked enforced=$enforced$
-| search sni_hostname=$domain_filter$
+| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
 | stats count as "Block Count", latest(_time) as last_seen by src_ip, dest_ip, dest_port, proto, sni_hostname, decided_by
 | eval last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S")
 | sort - "Block Count"
@@ -331,7 +331,7 @@
       <chart>
         <search>
           <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| search sni_hostname=$domain_filter$
+| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
 | eval action_label=if(action_cim=="allowed", "Allowed", "Blocked")
 | chart count over host by action_label
 | rename host as Gateway</query>
@@ -358,7 +358,7 @@
       <table>
         <search>
           <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| search sni_hostname=$domain_filter$
+| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
 | eval action_label=if(action_cim=="allowed", "Allowed", "Blocked")
 | table _time, host, src_ip, dest_ip, dest_port, proto, sni_hostname, action_label, decided_by, enforced
 | head 500
