@@ -5,7 +5,7 @@
     "id": {
       "group": null,
       "name": "TA-aviatrix",
-      "version": "2.0.1"
+      "version": "2.0.2"
     },
     "author": [
       {
@@ -37,7 +37,7 @@
       "uri": null
     },
     "releaseNotes": {
-      "name": "Version 2.0.0",
+      "name": "Version 2.0.2",
       "text": "RELEASE_NOTES.md",
       "uri": null
     }

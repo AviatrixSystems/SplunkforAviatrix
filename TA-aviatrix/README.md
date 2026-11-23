@@ -37,20 +37,24 @@ Create an HEC token in Splunk and configure your Aviatrix Controller's CoPilot o
 This add-on maps Aviatrix fields to the Splunk Common Information Model:
 
 **Network Traffic** (L4, L7, FQDN):
-- `src`, `dest`, `transport`, `bytes`, `packets`, `duration`, `action`, `rule`, `dvc`, `vendor_product`
+- `src`, `dest`, `dest_port`, `transport`, `bytes`, `packets`, `duration`, `action`, `rule`, `dvc`, `vendor_product`
+- `action` is the traffic outcome, `allowed` or `blocked`. A deny from a rule in monitor mode (`enforced=false`) doesn't drop traffic, so it is `allowed`.
+- `vendor_action` is the raw value (`PERMIT`/`DENY`, `Permit`/`Deny`).
+- `action_cim` is the normalized policy verdict (`blocked` for every deny), useful for policy analysis.
 
 **Intrusion Detection** (IDS):
-- `src`, `dest`, `signature`, `ids_type`, `severity`, `category`, `vendor_product`
+- `src`, `dest`, `signature`, `ids_type`, `severity`, `category`, `action`, `vendor_product`
+- `severity` is `critical`/`high`/`medium`/`low`/`informational`. The numeric Suricata priority is in `severity_id`.
 
 **Change Analysis** (Audit):
-- `user`, `object`, `status`, `change_type`, `dvc`, `vendor_product`
+- `action` (`created`/`modified`/`deleted`/`read`), `command` (raw API name or URL), `user`, `src`, `dest`, `object`, `object_id`, `object_category`, `status` (`success`/`failure`), `change_type`, `dvc`, `vendor_product`
 
 ## Lookups
 
 | Lookup | Purpose |
 |---|---|
-| `aviatrix_action_lookup` | Normalizes action values (PERMIT/Permit/Allow -> allowed, DENY/Deny/Block -> blocked) |
-| `aviatrix_severity_lookup` | Maps Suricata severity integers to names (1=critical, 2=high, etc.) |
+| `aviatrix_action_lookup` | Populates `action_cim` from the raw action (PERMIT/Permit/Allow -> allowed, DENY/Deny/Block -> blocked) |
+| `aviatrix_severity_lookup` | Reference table of Suricata severity integers to names (1=critical, 2=high, etc.) |
 | `aviatrix_protocol_lookup` | Resolves protocol numbers/names (6=tcp, 17=udp, 1=icmp) |
 | `aviatrix_session_end_reason_lookup` | Maps session end reason codes to descriptions |
 

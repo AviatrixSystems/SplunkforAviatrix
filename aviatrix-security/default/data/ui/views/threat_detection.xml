@@ -39,8 +39,8 @@
       <title>Total Alerts</title>
       <single>
         <search>
-          <query>`aviatrix_ids_alerts` severity=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature$
+          <query>`aviatrix_ids_alerts` severity_id=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature|s$
 | stats count</query>
           <earliest>$time.earliest$</earliest>
           <latest>$time.latest$</latest>
@@ -54,8 +54,8 @@
       <title>Critical Alerts</title>
       <single>
         <search>
-          <query>`aviatrix_ids_alerts` severity=1 src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature$
+          <query>`aviatrix_ids_alerts` severity_id=1 src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature|s$
 | stats count</query>
           <earliest>$time.earliest$</earliest>
           <latest>$time.latest$</latest>
@@ -74,8 +74,8 @@
       <title>High Severity</title>
       <single>
         <search>
-          <query>`aviatrix_ids_alerts` severity=2 src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature$
+          <query>`aviatrix_ids_alerts` severity_id=2 src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature|s$
 | stats count</query>
           <earliest>$time.earliest$</earliest>
           <latest>$time.latest$</latest>
@@ -94,8 +94,8 @@
       <title>Unique Signatures</title>
       <single>
         <search>
-          <query>`aviatrix_ids_alerts` severity=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature$
+          <query>`aviatrix_ids_alerts` severity_id=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature|s$
 | stats dc(signature)</query>
           <earliest>$time.earliest$</earliest>
           <latest>$time.latest$</latest>
@@ -108,8 +108,8 @@
       <title>Unique Sources</title>
       <single>
         <search>
-          <query>`aviatrix_ids_alerts` severity=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature$
+          <query>`aviatrix_ids_alerts` severity_id=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature|s$
 | stats dc(src_ip)</query>
           <earliest>$time.earliest$</earliest>
           <latest>$time.latest$</latest>
@@ -126,9 +126,9 @@
       <title>Alert Timeline by Severity</title>
       <chart>
         <search>
-          <query>`aviatrix_ids_alerts` severity=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature$
-| eval severity_label=case(severity=1, "1-Critical", severity=2, "2-High", severity=3, "3-Medium", severity=4, "4-Low", 1=1, "Other")
+          <query>`aviatrix_ids_alerts` severity_id=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature|s$
+| eval severity_label=case(severity_id=1, "1-Critical", severity_id=2, "2-High", severity_id=3, "3-Medium", severity_id=4, "4-Low", 1=1, "Other")
 | timechart count by severity_label</query>
           <earliest>$time.earliest$</earliest>
           <latest>$time.latest$</latest>
@@ -145,8 +145,8 @@
       <title>Alert Categories</title>
       <chart>
         <search>
-          <query>`aviatrix_ids_alerts` severity=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature$
+          <query>`aviatrix_ids_alerts` severity_id=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature|s$
 | stats count by category
 | sort - count</query>
           <earliest>$time.earliest$</earliest>
@@ -165,12 +165,12 @@
       <title>Top Triggered Signatures</title>
       <table>
         <search>
-          <query>`aviatrix_ids_alerts` severity=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature$
-| stats count as Alerts, dc(src_ip) as "Unique Sources", dc(dest_ip) as "Unique Targets", values(category) as Categories by signature, signature_id, severity
+          <query>`aviatrix_ids_alerts` severity_id=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature|s$
+| stats count as Alerts, dc(src_ip) as "Unique Sources", dc(dest_ip) as "Unique Targets", values(category) as Categories by signature, signature_id, severity_id
 | sort - Alerts
 | head 20
-| rename signature as Signature, signature_id as SID, severity as Severity</query>
+| rename signature as Signature, signature_id as SID, severity_id as Severity</query>
           <earliest>$time.earliest$</earliest>
           <latest>$time.latest$</latest>
         </search>
@@ -192,8 +192,8 @@
       <title>Source IP Investigation</title>
       <table>
         <search>
-          <query>`aviatrix_ids_alerts` severity=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature$
+          <query>`aviatrix_ids_alerts` severity_id=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature|s$
 | stats count as Alerts, dc(signature) as "Unique Sigs", dc(dest_ip) as "Targets", values(category) as Categories by src_ip
 | sort - Alerts
 | head 20
@@ -216,8 +216,8 @@
       <title>Target Investigation</title>
       <table>
         <search>
-          <query>`aviatrix_ids_alerts` severity=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature$
+          <query>`aviatrix_ids_alerts` severity_id=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature|s$
 | stats count as Alerts, dc(signature) as "Unique Sigs", dc(src_ip) as "Attackers", values(category) as Categories by dest_ip
 | sort - Alerts
 | head 20
@@ -244,8 +244,8 @@
       <title>HTTP Details (where available)</title>
       <table>
         <search>
-          <query>`aviatrix_ids_alerts` severity=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature$
+          <query>`aviatrix_ids_alerts` severity_id=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature|s$
 | where isnotnull(http_method)
 | table _time, src_ip, dest_ip, http_method, http_hostname, http_url, http_user_agent, signature
 | head 100
@@ -266,8 +266,8 @@
       <title>Alert Events</title>
       <event>
         <search>
-          <query>`aviatrix_ids_alerts` severity=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature$</query>
+          <query>`aviatrix_ids_alerts` severity_id=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
+| search signature=$signature|s$</query>
           <earliest>$time.earliest$</earliest>
           <latest>$time.latest$</latest>
         </search>

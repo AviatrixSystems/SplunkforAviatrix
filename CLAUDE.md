@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repository contains two Splunk apps for **Aviatrix Distributed Cloud Firewall** security visibility, version 2.0.0. Logs are ingested via HEC (HTTP Event Collector) with CIM-compliant field normalization.
+This repository contains two Splunk apps for **Aviatrix Distributed Cloud Firewall** security visibility, TA 2.0.2 / app 2.0.1. Logs are ingested via HEC (HTTP Event Collector) with CIM-compliant field normalization.
 
 ## Architecture
 
@@ -14,7 +14,7 @@ This repository contains two Splunk apps for **Aviatrix Distributed Cloud Firewa
 ```
 TA-aviatrix/
 ├── default/
-│   ├── app.conf            # Add-on metadata (v2.0.0, hidden from UI)
+│   ├── app.conf            # Add-on metadata (hidden from UI)
 │   ├── props.conf          # Field extractions for all sourcetypes
 │   ├── transforms.conf     # Lookup definitions (action, protocol, severity)
 │   ├── eventtypes.conf     # Event type definitions for CIM mapping
@@ -31,7 +31,7 @@ TA-aviatrix/
 ```
 aviatrix-security/
 ├── default/
-│   ├── app.conf            # App metadata (v2.0.0, visible in UI)
+│   ├── app.conf            # App metadata (visible in UI)
 │   ├── macros.conf         # Search macros (aviatrix_index, aviatrix_l4, etc.)
 │   └── data/ui/
 │       ├── nav/default.xml
@@ -68,11 +68,17 @@ aviatrix-security/
 
 ### CIM Field Mapping
 
-Action normalization uses `aviatrix_action_lookup` with output field `action_cim`:
-- L4: `PERMIT` -> `allowed`, `DENY` -> `blocked`
-- L7: `Permit` -> `allowed`, `Deny` -> `blocked`
+For L4/L7, `action` is normalized to the CIM value with calculated fields (`EVAL-action`), as of TA 2.0.2:
+- L4: `PERMIT` -> `allowed`, `DENY` -> `blocked`. L7: `Permit` -> `allowed`, `Deny` -> `blocked`.
+- Monitor mode: `DENY` with `enforced=false` -> `action=allowed` (traffic not dropped). `action_cim` stays `blocked` (policy verdict).
+- The raw value is preserved in `vendor_action` (`EVAL-vendor_action = action`). Calculated fields run in parallel against extracted values, so both EVALs see the raw action.
+- `action_cim` (policy verdict) is populated by `aviatrix_action_lookup` with `vendor_action` as input.
+- Don't use `LOOKUP ... OUTPUT x AS action` with `action` as the input: Splunk reports a reference cycle. The EVAL approach avoids it.
+- Dashboards use the `aviatrix_traffic_action` macro for the traffic outcome, so app 2.0.1 works with TA 2.0.0 through 2.0.2. The L7 Firewall Activity dashboard deliberately uses `action_cim` (policy verdict).
+- IDS: `severity` is the CIM string and `severity_id` is numeric. Dashboards filter on `severity_id`.
+- Audit: `action` is the CIM verb (from the REST `method=` in `syslog`, or the legacy command name plus argv sub-op). The raw API name or URL is in `command`. `status`/`result_status` are `success`/`failure`; raw `result` can be `Success`, `Fail`, or an HTTP status line like `201 CREATED`. The app normalizes these through the `aviatrix_audit_fields` macro.
 
-**Important:** The lookup outputs to `action_cim` (not `action`) to avoid a reference cycle in Splunk. Dashboards use `action_cim` for the normalized action value.
+**SPL gotcha:** `OR` binds tighter than the implied `AND`, so never write `(`macro_a` OR `macro_b`)` when the macros expand to multiple terms. Use `` `aviatrix_index` (sourcetype=a OR sourcetype=b) ``.
 
 ## Development Notes
 
