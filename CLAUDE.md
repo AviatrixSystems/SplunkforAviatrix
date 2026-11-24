@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repository contains two Splunk apps for **Aviatrix Distributed Cloud Firewall** security visibility, TA 2.2.0 / app 2.2.0. Logs are ingested via HEC (HTTP Event Collector) with CIM-compliant field normalization.
+This repository contains two Splunk apps for **Aviatrix Distributed Cloud Firewall** security visibility, TA 2.2.1 / app 2.2.1. Logs are ingested via HEC (HTTP Event Collector) with CIM-compliant field normalization.
 
 ## Architecture
 
@@ -101,6 +101,10 @@ For L4/L7, `action` is normalized to the CIM value with calculated fields (`EVAL
 - Acceleration must ship `acceleration = 0` (AppInspect cloud fails otherwise); users turn it on in the UI.
 - Count flows with `aviatrix_flows` (it excludes 8.2 session-end and L7 TLS-check events). Scan detection uses `flow_role=request`: L4 logs replies too, so servers look like scanners otherwise.
 - Smoke-test every panel search: `python3 tools/dashboards/test_searches.py --web http://host:8000 --earliest=-1y` (or `--url https://host:8089 --user ... --password ...`). EMPTY can be legitimate; ERROR is not.
+
+### Icons and listing
+- App icons/logos are generated from the official Aviatrix mark: `python3 tools/brand/build_icons.py` (transparent PNGs for both apps). Splunk 10 paints the nav `color` behind the app icon, so `nav/default.xml` keeps `color="transparent"`.
+- Splunkbase listing text lives in `SPLUNKBASE_LISTINGS.md` (the listing allows 5 screenshots, 1200x900).
 
 ### Building Packages
 ```bash

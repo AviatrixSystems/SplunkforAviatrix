@@ -1,5 +1,9 @@
 # Aviatrix Add-on for Splunk - Release Notes
 
+## Version 2.2.1
+
+- New app icon and logo built from the official Aviatrix mark on a transparent background (`tools/brand/build_icons.py`). Icons are sharper at small sizes in Splunk 10's side navigation.
+
 ## Version 2.2.0
 
 - **Deprecated: legacy FQDN egress filter logs (`aviatrix:firewall:fqdn`).** Aviatrix security analytics now focus on the Distributed Cloud Firewall (L4 micro-segmentation + L7). The TA still parses the sourcetype, and its `aviatrix_fqdn` event type keeps its CIM tags, so existing searches and Enterprise Security data models work. It is no longer part of `aviatrix_firewall_traffic`, `aviatrix_traffic_allowed` or `aviatrix_traffic_blocked`. Removal is planned for 3.0; move egress controls to DCF L7 (SNI) policies.
