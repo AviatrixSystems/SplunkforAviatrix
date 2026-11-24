@@ -1,5 +1,22 @@
 # Aviatrix Security - Release Notes
 
+## Version 2.2.0
+
+Works with Aviatrix Add-on for Splunk 2.0.2 and later (2.2.0 recommended). Requires Splunk Enterprise 9.0+ or Splunk Cloud (Dashboard Studio). Tested on 9.4.7 and 10.6.1.1.
+
+- **All seven dashboards are rebuilt in Dashboard Studio**, with a responsive grid layout that fills the screen at native size, one dark design system, and reserved colors: blue allowed, amber "would block", red blocked, and severity colors with labels.
+- **New "Would block" outcome everywhere**: denies from monitor-mode rules are shown separately from enforced blocks, so policy rollout gaps are visible.
+- **Security Overview**: KPI tiles with period totals and sparklines, and a new **Notable activity** table that ranks detections across all sources. It covers port scans and host sweeps, internet ingress allowed only by the DCF default rule, egress allowed only by monitor mode, IDS/IPS threats, logging, identity and policy changes, repeated API failures, VPN logins from several countries, large VPN transfers, and tunnels down. Gateway posture adds Monitor % and Default rule %.
+- **Traffic Analysis**: Outcome and direction filters; a source network → service → outcome sankey; top sources, destinations and services; and **scan and sweep suspects** that count requests only, so busy servers replying to ephemeral ports are not flagged. Flow counts no longer double count 8.2 session start and end events.
+- **Threat Detection**: Combines Suricata alerts with the 8.2 L7 inline IPS verdicts. Adds MITRE ATT&CK tactics, affected internal hosts and external peers (with geolocation), and an "Asset IP (either side)" pivot.
+- **L7 Firewall Activity**: "Would be blocked if enforced" domains, rules by hits and mode, and inspection exceptions (TLS validation failures, IDS unavailable, stalled handshakes).
+- **Gateway Health**: A worst-first status table that includes Silent gateways and AWS ENA allowance-exceeded counts; top-10 saturation charts; and tunnel state and changes (new data).
+- **Audit Trail**: Security-relevance categories (logging, identity, policy change), a when-changes-happen punchcard, and failures grouped by controller error code.
+- **VPN Sessions**: A "sessions worth a look" table (several countries, transfers over 1 GB, sessions over 12 h, many client IPs).
+- **Performance over long ranges**: A new **Aviatrix_Traffic** data model (one event per flow) feeds the firewall panels through `tstats summariesonly=false`, so results are always complete. **Turn on its acceleration** (Settings > Data models > Aviatrix Traffic > Edit Acceleration) to make 90-day and 1-year views take seconds instead of minutes. It ships turned off, as Splunk Cloud vetting requires.
+- New macros: `aviatrix_flows`, `aviatrix_outcome`, `aviatrix_direction`, `aviatrix_service(1)`, `aviatrix_severity_label(1)`, `aviatrix_threats`, `aviatrix_threat_fields`, `aviatrix_audit_risk`, `aviatrix_tunnel`.
+- Dashboard token names are unchanged, so existing links such as `traffic_analysis?form.dest=...` still work. The Traffic Analysis `action` token takes `allowed`, `monitor` or `blocked`.
+
 ## Version 2.1.0
 
 Works with Aviatrix Add-on for Splunk 2.0.0 and later (2.1.0 recommended).

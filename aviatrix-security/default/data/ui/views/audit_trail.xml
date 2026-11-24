@@ -1,280 +1,1200 @@
-<form version="1.1" theme="dark">
+<dashboard version="2" theme="dark">
   <label>Audit Trail</label>
-  <description>Aviatrix Controller change tracking: who created, modified or deleted what, and whether it succeeded</description>
-
-  <fieldset submitButton="false" autoRun="true">
-    <input type="time" token="time" searchWhenChanged="true">
-      <label>Time Range</label>
-      <default>
-        <earliest>-7d@d</earliest>
-        <latest>now</latest>
-      </default>
-    </input>
-    <input type="dropdown" token="change_filter" searchWhenChanged="true">
-      <label>Operation</label>
-      <choice value="NOT change_action=read">Changes (exclude reads)</choice>
-      <choice value="change_action=*">All operations</choice>
-      <choice value="change_action=created">Created</choice>
-      <choice value="change_action=modified">Modified</choice>
-      <choice value="change_action=deleted">Deleted</choice>
-      <choice value="change_action=read">Read only</choice>
-      <default>NOT change_action=read</default>
-    </input>
-    <input type="dropdown" token="result" searchWhenChanged="true">
-      <label>Result</label>
-      <choice value="*">All</choice>
-      <choice value="success">Success</choice>
-      <choice value="failure">Failure</choice>
-      <default>*</default>
-    </input>
-    <input type="text" token="user" searchWhenChanged="true">
-      <label>User</label>
-      <default>*</default>
-    </input>
-    <input type="text" token="category" searchWhenChanged="true">
-      <label>Object Category</label>
-      <default>*</default>
-    </input>
-    <input type="text" token="action_filter" searchWhenChanged="true">
-      <label>Command Filter</label>
-      <default>*</default>
-    </input>
-  </fieldset>
-
-  <!-- One search feeds every panel -->
-  <search id="audit_base">
-    <query>`aviatrix_audit`
-| `aviatrix_audit_fields`
-| search username=$user|s$ command=$action_filter|s$ $change_filter$
-| where ("$result$"="*" OR result_status="$result$") AND ("$category$"="*" OR object_category="$category$")
-| eval command_group=if(match(command, "^/"), replace(replace(command, "[ ?].*$", ""), "/([0-9a-fA-F]{8}-[0-9a-fA-F-]{27}|[0-9a-fA-F]{24})(/|$)", "/{id}\2"), command)
-| fields _time, username, src, change_action, object_category, object, command, command_group, result, result_status, reason</query>
-    <earliest>$time.earliest$</earliest>
-    <latest>$time.latest$</latest>
-  </search>
-
-  <!-- KPI Row -->
-  <row>
-    <panel>
-      <title>Total Operations</title>
-      <single>
-        <search base="audit_base">
-          <query>stats count</query>
-        </search>
-        <option name="colorMode">none</option>
-        <option name="useColors">0</option>
-        <option name="numberPrecision">0</option>
-        <option name="useThousandSeparators">1</option>
-      </single>
-    </panel>
-    <panel>
-      <title>Created</title>
-      <single>
-        <search base="audit_base">
-          <query>where change_action="created" | stats count</query>
-        </search>
-        <option name="colorMode">none</option>
-        <option name="drilldown">all</option>
-        <option name="useColors">0</option>
-        <option name="numberPrecision">0</option>
-        <option name="useThousandSeparators">1</option>
-        <drilldown>
-          <set token="form.change_filter">change_action=created</set>
-        </drilldown>
-      </single>
-    </panel>
-    <panel>
-      <title>Modified</title>
-      <single>
-        <search base="audit_base">
-          <query>where change_action="modified" | stats count</query>
-        </search>
-        <option name="colorMode">none</option>
-        <option name="drilldown">all</option>
-        <option name="useColors">0</option>
-        <option name="numberPrecision">0</option>
-        <option name="useThousandSeparators">1</option>
-        <drilldown>
-          <set token="form.change_filter">change_action=modified</set>
-        </drilldown>
-      </single>
-    </panel>
-    <panel>
-      <title>Deleted</title>
-      <single>
-        <search base="audit_base">
-          <query>where change_action="deleted" | stats count</query>
-        </search>
-        <option name="colorMode">none</option>
-        <option name="drilldown">all</option>
-        <option name="useColors">0</option>
-        <option name="numberPrecision">0</option>
-        <option name="useThousandSeparators">1</option>
-        <drilldown>
-          <set token="form.change_filter">change_action=deleted</set>
-        </drilldown>
-      </single>
-    </panel>
-    <panel>
-      <title>Failed</title>
-      <single>
-        <search base="audit_base">
-          <query>where result_status="failure" | stats count</query>
-        </search>
-        <option name="colorMode">block</option>
-        <option name="drilldown">all</option>
-        <option name="numberPrecision">0</option>
-        <option name="rangeColors">["0x53a051","0xf8be34","0xdc4e41"]</option>
-        <option name="rangeValues">[0,10]</option>
-        <option name="useColors">1</option>
-        <option name="useThousandSeparators">1</option>
-        <drilldown>
-          <set token="form.result">failure</set>
-        </drilldown>
-      </single>
-    </panel>
-    <panel>
-      <title>Unique Users</title>
-      <single>
-        <search base="audit_base">
-          <query>stats dc(username)</query>
-        </search>
-        <option name="colorMode">none</option>
-        <option name="useColors">0</option>
-        <option name="numberPrecision">0</option>
-      </single>
-    </panel>
-  </row>
-
-  <!-- Timeline -->
-  <row>
-    <panel>
-      <title>Operations Over Time</title>
-      <chart>
-        <search base="audit_base">
-          <query>timechart count by change_action</query>
-        </search>
-        <option name="charting.chart">column</option>
-        <option name="charting.chart.stackMode">stacked</option>
-        <option name="charting.drilldown">none</option>
-        <option name="charting.legend.placement">bottom</option>
-        <option name="charting.axisTitleX.visibility">collapsed</option>
-        <option name="charting.fieldColors">{"created": 0x53A051, "modified": 0x0877A6, "deleted": 0xDC4E41, "read": 0x708794, "unknown": 0x6A5C9E}</option>
-        <option name="height">250</option>
-      </chart>
-    </panel>
-    <panel>
-      <title>Activity by User</title>
-      <chart>
-        <search base="audit_base">
-          <query>chart count over username by change_action
-| addtotals fieldname=_total
-| sort - _total
-| head 10</query>
-        </search>
-        <option name="charting.chart">bar</option>
-        <option name="charting.chart.stackMode">stacked</option>
-        <option name="charting.drilldown">all</option>
-        <option name="charting.legend.placement">bottom</option>
-        <option name="charting.axisTitleX.visibility">collapsed</option>
-        <option name="charting.axisTitleY.visibility">collapsed</option>
-        <option name="charting.fieldColors">{"created": 0x53A051, "modified": 0x0877A6, "deleted": 0xDC4E41, "read": 0x708794, "unknown": 0x6A5C9E}</option>
-        <option name="height">250</option>
-        <drilldown>
-          <set token="form.user">$click.value$</set>
-        </drilldown>
-      </chart>
-    </panel>
-  </row>
-
-  <!-- What changed -->
-  <row>
-    <panel>
-      <title>Changes by Object Category</title>
-      <chart>
-        <search base="audit_base">
-          <query>stats count by object_category
-| sort - count
-| head 12</query>
-        </search>
-        <option name="charting.chart">pie</option>
-        <option name="charting.drilldown">all</option>
-        <option name="height">300</option>
-        <drilldown>
-          <set token="form.category">$click.value$</set>
-        </drilldown>
-      </chart>
-    </panel>
-    <panel>
-      <title>Top Commands</title>
-      <table>
-        <search base="audit_base">
-          <query>stats count as Count, values(change_action) as Operation, count(eval(result_status="failure")) as Failed, dc(username) as Users, latest(_time) as last_seen by command_group
-| eval last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S")
-| sort - Count
-| head 20
-| rename command_group as Command, last_seen as "Last Seen"</query>
-        </search>
-        <option name="count">10</option>
-        <option name="drilldown">row</option>
-        <format type="color" field="Failed">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" minValue="0"></scale>
-        </format>
-        <drilldown>
-          <set token="form.action_filter">$row.Command$</set>
-        </drilldown>
-      </table>
-    </panel>
-  </row>
-
-  <!-- Policy Changes -->
-  <row>
-    <panel>
-      <title>Policy/Security Changes</title>
-      <table>
-        <search base="audit_base">
-          <query>where change_action!="read" AND (match(lower(command), "microseg|policy|rule|firewall|firenet|app-domains|smart") OR object_category IN ("microseg", "app-domains", "firenet"))
-| table _time, username, src, change_action, object, result, reason
-| head 100
-| rename username as User, src as Source, change_action as Operation, object as Object, result as Result, reason as Details</query>
-        </search>
-        <option name="count">10</option>
-        <option name="drilldown">none</option>
-        <option name="wrap">false</option>
-        <format type="color" field="Operation">
-          <colorPalette type="map">{"created": 0x53A051, "modified": 0x0877A6, "deleted": 0xDC4E41}</colorPalette>
-        </format>
-        <format type="color" field="Result">
-          <colorPalette type="map">{"Success": 0x53A051, "200 OK": 0x53A051, "201 CREATED": 0x53A051, "204 NO CONTENT": 0x53A051, "Fail": 0xDC4E41, "400 BAD REQUEST": 0xDC4E41}</colorPalette>
-        </format>
-      </table>
-    </panel>
-  </row>
-
-  <!-- Detailed Audit Log -->
-  <row>
-    <panel>
-      <title>Audit Log Events</title>
-      <table>
-        <search base="audit_base">
-          <query>table _time, username, src, change_action, object_category, command, result, reason
-| head 500
-| rename username as User, src as Source, change_action as Operation, object_category as Category, command as Command, result as Result, reason as Details</query>
-        </search>
-        <option name="count">20</option>
-        <option name="drilldown">row</option>
-        <option name="wrap">false</option>
-        <format type="color" field="Operation">
-          <colorPalette type="map">{"created": 0x53A051, "modified": 0x0877A6, "deleted": 0xDC4E41}</colorPalette>
-        </format>
-        <format type="color" field="Result">
-          <colorPalette type="map">{"Success": 0x53A051, "200 OK": 0x53A051, "201 CREATED": 0x53A051, "204 NO CONTENT": 0x53A051, "Fail": 0xDC4E41, "400 BAD REQUEST": 0xDC4E41}</colorPalette>
-        </format>
-        <drilldown>
-          <link target="_blank">/app/$env:app$/search?q=search%20%60aviatrix_audit%60%20%7C%20%60aviatrix_audit_fields%60%20%7C%20search%20username%3D%22$row.User$%22%20command%3D%22$row.Command$%22&amp;earliest=$time.earliest$&amp;latest=$time.latest$</link>
-        </drilldown>
-      </table>
-    </panel>
-  </row>
-</form>
+  <description>Aviatrix Controller change tracking: who created, modified or deleted what, when, from where, whether it worked, and which changes matter for security.</description>
+  <definition><![CDATA[
+{
+  "title": "Audit Trail",
+  "description": "Aviatrix Controller change tracking: who created, modified or deleted what, when, from where, whether it worked, and which changes matter for security.",
+  "inputs": {
+    "input_time": {
+      "type": "input.timerange",
+      "title": "Time range",
+      "options": {
+        "token": "time",
+        "defaultValue": "-7d@d,now"
+      }
+    },
+    "input_change_filter": {
+      "type": "input.dropdown",
+      "title": "Operation",
+      "options": {
+        "token": "change_filter",
+        "defaultValue": "NOT change_action=read",
+        "items": [
+          {
+            "label": "Changes (exclude reads)",
+            "value": "NOT change_action=read"
+          },
+          {
+            "label": "All operations",
+            "value": "change_action=*"
+          },
+          {
+            "label": "Created",
+            "value": "change_action=created"
+          },
+          {
+            "label": "Modified",
+            "value": "change_action=modified"
+          },
+          {
+            "label": "Deleted",
+            "value": "change_action=deleted"
+          },
+          {
+            "label": "Read only",
+            "value": "change_action=read"
+          }
+        ]
+      }
+    },
+    "input_result": {
+      "type": "input.dropdown",
+      "title": "Result",
+      "options": {
+        "token": "result",
+        "defaultValue": "*",
+        "items": [
+          {
+            "label": "All",
+            "value": "*"
+          },
+          {
+            "label": "Success",
+            "value": "success"
+          },
+          {
+            "label": "Failure",
+            "value": "failure"
+          }
+        ]
+      }
+    },
+    "input_risk": {
+      "type": "input.dropdown",
+      "title": "Security relevance",
+      "options": {
+        "token": "risk",
+        "defaultValue": "*",
+        "items": [
+          {
+            "label": "All",
+            "value": "*"
+          },
+          {
+            "label": "Security-relevant only",
+            "value": "relevant"
+          },
+          {
+            "label": "Logging change",
+            "value": "Logging change"
+          },
+          {
+            "label": "Identity change",
+            "value": "Identity change"
+          },
+          {
+            "label": "Security policy change",
+            "value": "Security policy change"
+          }
+        ]
+      }
+    },
+    "input_user": {
+      "type": "input.text",
+      "title": "User",
+      "options": {
+        "token": "user",
+        "defaultValue": "*"
+      }
+    },
+    "input_category": {
+      "type": "input.text",
+      "title": "Object category",
+      "options": {
+        "token": "category",
+        "defaultValue": "*"
+      }
+    },
+    "input_action_filter": {
+      "type": "input.text",
+      "title": "Command",
+      "options": {
+        "token": "action_filter",
+        "defaultValue": "*"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$time.earliest$",
+            "latest": "$time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "visualizations": {
+    "viz_8": {
+      "type": "splunk.singlevalue",
+      "title": "Operations",
+      "dataSources": {
+        "primary": "ds_2"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#3987e5",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      }
+    },
+    "viz_9": {
+      "type": "splunk.singlevalue",
+      "title": "Created",
+      "dataSources": {
+        "primary": "ds_3"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#3987e5",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      }
+    },
+    "viz_10": {
+      "type": "splunk.singlevalue",
+      "title": "Modified",
+      "dataSources": {
+        "primary": "ds_4"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#3987e5",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      }
+    },
+    "viz_11": {
+      "type": "splunk.singlevalue",
+      "title": "Deleted",
+      "dataSources": {
+        "primary": "ds_5"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#3987e5",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      }
+    },
+    "viz_12": {
+      "type": "splunk.singlevalue",
+      "title": "Failed",
+      "dataSources": {
+        "primary": "ds_6"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#d03b3b",
+        "majorColor": "> majorValue | rangeValue(alertColors)",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      },
+      "context": {
+        "alertColors": [
+          {
+            "to": 1,
+            "value": "#f0efec"
+          },
+          {
+            "from": 1,
+            "value": "#d03b3b"
+          }
+        ]
+      }
+    },
+    "viz_13": {
+      "type": "splunk.singlevalue",
+      "title": "Security-relevant",
+      "dataSources": {
+        "primary": "ds_7"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#fab219",
+        "majorColor": "> majorValue | rangeValue(alertColors)",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      },
+      "context": {
+        "alertColors": [
+          {
+            "to": 1,
+            "value": "#f0efec"
+          },
+          {
+            "from": 1,
+            "value": "#fab219"
+          }
+        ]
+      },
+      "description": "Logging, identity or policy changes"
+    },
+    "viz_16": {
+      "type": "splunk.column",
+      "title": "Operations over time",
+      "dataSources": {
+        "primary": "ds_14"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "legendDisplay": "bottom",
+        "xAxisTitleVisibility": "hide",
+        "seriesColors": [
+          "#3987e5",
+          "#d95926",
+          "#199e70",
+          "#c98500",
+          "#d55181",
+          "#0ca30c",
+          "#9085e9",
+          "#e66767"
+        ],
+        "yAxisTitleVisibility": "hide",
+        "seriesColorsByField": {
+          "created": "#199e70",
+          "modified": "#3987e5",
+          "deleted": "#d03b3b",
+          "read": "#6b6f76",
+          "unknown": "#9085e9"
+        },
+        "stackMode": "stacked"
+      }
+    },
+    "viz_17": {
+      "type": "splunk.punchcard",
+      "title": "When changes happen (UTC)",
+      "dataSources": {
+        "primary": "ds_15"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "bubbleColor": "#3987e5",
+        "showDefaultSort": false
+      },
+      "description": "Off-hours activity stands out"
+    },
+    "viz_section_18": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "#### SECURITY-RELEVANT CHANGES\nLogging changes can be defense evasion; identity changes grant access; policy changes alter enforcement.",
+        "fontColor": "#c3c2b7",
+        "fontSize": "custom",
+        "customFontSize": 13,
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_20": {
+      "type": "splunk.table",
+      "title": "Security-relevant changes",
+      "dataSources": {
+        "primary": "ds_19"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 9,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small",
+        "columnFormat": {
+          "Operation": {
+            "rowColors": "> table | seriesByName(\"Operation\") | matchValue(colors0)"
+          },
+          "Result": {
+            "rowColors": "> table | seriesByName(\"Result\") | matchValue(colors1)"
+          },
+          "Command": {
+            "width": 340
+          }
+        }
+      },
+      "context": {
+        "colors0": [
+          {
+            "match": "Allowed",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Would block",
+            "value": "#fab219"
+          },
+          {
+            "match": "Blocked",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Critical",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "High",
+            "value": "#f4a27f"
+          },
+          {
+            "match": "Medium",
+            "value": "#fab219"
+          },
+          {
+            "match": "Low",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Info",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Healthy",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Warning",
+            "value": "#fab219"
+          },
+          {
+            "match": "Silent",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Up",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Down",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Detected",
+            "value": "#fab219"
+          },
+          {
+            "match": "success",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "failure",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "created",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "modified",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "deleted",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "read",
+            "value": "#898781"
+          },
+          {
+            "match": "active",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "disconnected",
+            "value": "#898781"
+          }
+        ],
+        "colors1": [
+          {
+            "match": "Allowed",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Would block",
+            "value": "#fab219"
+          },
+          {
+            "match": "Blocked",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Critical",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "High",
+            "value": "#f4a27f"
+          },
+          {
+            "match": "Medium",
+            "value": "#fab219"
+          },
+          {
+            "match": "Low",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Info",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Healthy",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Warning",
+            "value": "#fab219"
+          },
+          {
+            "match": "Silent",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Up",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Down",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Detected",
+            "value": "#fab219"
+          },
+          {
+            "match": "success",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "failure",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "created",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "modified",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "deleted",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "read",
+            "value": "#898781"
+          },
+          {
+            "match": "active",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "disconnected",
+            "value": "#898781"
+          }
+        ]
+      }
+    },
+    "viz_section_21": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "#### WHO AND WHAT",
+        "fontColor": "#c3c2b7",
+        "fontSize": "custom",
+        "customFontSize": 13,
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_24": {
+      "type": "splunk.bar",
+      "title": "Activity by user",
+      "dataSources": {
+        "primary": "ds_22"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "legendDisplay": "bottom",
+        "xAxisTitleVisibility": "hide",
+        "seriesColors": [
+          "#3987e5",
+          "#d95926",
+          "#199e70",
+          "#c98500",
+          "#d55181",
+          "#0ca30c",
+          "#9085e9",
+          "#e66767"
+        ],
+        "yAxisTitleVisibility": "hide",
+        "seriesColorsByField": {
+          "created": "#199e70",
+          "modified": "#3987e5",
+          "deleted": "#d03b3b",
+          "read": "#6b6f76",
+          "unknown": "#9085e9"
+        },
+        "stackMode": "stacked"
+      }
+    },
+    "viz_25": {
+      "type": "splunk.table",
+      "title": "Top commands",
+      "dataSources": {
+        "primary": "ds_23"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 8,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small"
+      },
+      "description": "Click a command to filter the dashboard to it",
+      "eventHandlers": [
+        {
+          "type": "drilldown.setToken",
+          "options": {
+            "tokens": [
+              {
+                "token": "action_filter",
+                "key": "row.Command.value"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "viz_28": {
+      "type": "splunk.table",
+      "title": "Failures by controller error",
+      "dataSources": {
+        "primary": "ds_26"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 8,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small",
+        "columnFormat": {
+          "Message": {
+            "width": 380
+          }
+        }
+      }
+    },
+    "viz_29": {
+      "type": "splunk.bar",
+      "title": "Changes by object category",
+      "dataSources": {
+        "primary": "ds_27"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "legendDisplay": "off",
+        "xAxisTitleVisibility": "hide",
+        "seriesColors": [
+          "#3987e5",
+          "#d95926",
+          "#199e70",
+          "#c98500",
+          "#d55181",
+          "#0ca30c",
+          "#9085e9",
+          "#e66767"
+        ],
+        "yAxisTitleVisibility": "hide"
+      },
+      "description": "Click to filter"
+    },
+    "viz_section_30": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "#### AUDIT LOG\nMost recent 500 operations. Click a row to open it in Search.",
+        "fontColor": "#c3c2b7",
+        "fontSize": "custom",
+        "customFontSize": 13,
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_32": {
+      "type": "splunk.table",
+      "title": "Operations",
+      "dataSources": {
+        "primary": "ds_31"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 12,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small",
+        "columnFormat": {
+          "Operation": {
+            "rowColors": "> table | seriesByName(\"Operation\") | matchValue(colors0)"
+          },
+          "Status": {
+            "rowColors": "> table | seriesByName(\"Status\") | matchValue(colors1)"
+          },
+          "Command": {
+            "width": 360
+          }
+        }
+      },
+      "context": {
+        "colors0": [
+          {
+            "match": "Allowed",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Would block",
+            "value": "#fab219"
+          },
+          {
+            "match": "Blocked",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Critical",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "High",
+            "value": "#f4a27f"
+          },
+          {
+            "match": "Medium",
+            "value": "#fab219"
+          },
+          {
+            "match": "Low",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Info",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Healthy",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Warning",
+            "value": "#fab219"
+          },
+          {
+            "match": "Silent",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Up",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Down",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Detected",
+            "value": "#fab219"
+          },
+          {
+            "match": "success",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "failure",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "created",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "modified",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "deleted",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "read",
+            "value": "#898781"
+          },
+          {
+            "match": "active",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "disconnected",
+            "value": "#898781"
+          }
+        ],
+        "colors1": [
+          {
+            "match": "Allowed",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Would block",
+            "value": "#fab219"
+          },
+          {
+            "match": "Blocked",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Critical",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "High",
+            "value": "#f4a27f"
+          },
+          {
+            "match": "Medium",
+            "value": "#fab219"
+          },
+          {
+            "match": "Low",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Info",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Healthy",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Warning",
+            "value": "#fab219"
+          },
+          {
+            "match": "Silent",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Up",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Down",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Detected",
+            "value": "#fab219"
+          },
+          {
+            "match": "success",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "failure",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "created",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "modified",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "deleted",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "read",
+            "value": "#898781"
+          },
+          {
+            "match": "active",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "disconnected",
+            "value": "#898781"
+          }
+        ]
+      },
+      "eventHandlers": [
+        {
+          "type": "drilldown.linkToSearch",
+          "options": {
+            "type": "auto",
+            "newTab": true
+          }
+        }
+      ]
+    }
+  },
+  "dataSources": {
+    "ds_audit_base": {
+      "type": "ds.search",
+      "name": "ds_audit_base",
+      "options": {
+        "query": "`aviatrix_audit`\n| `aviatrix_audit_fields`\n| `aviatrix_audit_risk`\n| search username=$user|s$ command=$action_filter|s$ $change_filter$\n| where (\"$result$\"=\"*\" OR result_status=\"$result$\") AND (\"$category$\"=\"*\" OR object_category=\"$category$\") AND (\"$risk$\"=\"*\" OR (\"$risk$\"=\"relevant\" AND isnotnull(audit_risk)) OR audit_risk=\"$risk$\")\n| eval command_group=if(match(command, \"^/\"), replace(replace(command, \"[ ?].*$\", \"\"), \"/([0-9a-fA-F]{8}-[0-9a-fA-F-]{27}|[0-9a-fA-F]{24})(/|$)\", \"/{id}\\2\"), command)\n| fields _time, username, src, controller, change_action, object_category, object, command, command_group, result, result_status, reason, error_code, error_message, audit_risk"
+      }
+    },
+    "ds_2": {
+      "type": "ds.chain",
+      "name": "ds_2",
+      "options": {
+        "extend": "ds_audit_base",
+        "query": "| timechart count as value\n| fillnull value=0 value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_3": {
+      "type": "ds.chain",
+      "name": "ds_3",
+      "options": {
+        "extend": "ds_audit_base",
+        "query": "| where change_action=\"created\"\n| timechart count as value\n| fillnull value=0 value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_4": {
+      "type": "ds.chain",
+      "name": "ds_4",
+      "options": {
+        "extend": "ds_audit_base",
+        "query": "| where change_action=\"modified\"\n| timechart count as value\n| fillnull value=0 value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_5": {
+      "type": "ds.chain",
+      "name": "ds_5",
+      "options": {
+        "extend": "ds_audit_base",
+        "query": "| where change_action=\"deleted\"\n| timechart count as value\n| fillnull value=0 value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_6": {
+      "type": "ds.chain",
+      "name": "ds_6",
+      "options": {
+        "extend": "ds_audit_base",
+        "query": "| where result_status=\"failure\"\n| timechart count as value\n| fillnull value=0 value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_7": {
+      "type": "ds.chain",
+      "name": "ds_7",
+      "options": {
+        "extend": "ds_audit_base",
+        "query": "| where isnotnull(audit_risk)\n| timechart count as value\n| fillnull value=0 value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_14": {
+      "type": "ds.chain",
+      "name": "ds_14",
+      "options": {
+        "extend": "ds_audit_base",
+        "query": "| timechart count by change_action"
+      }
+    },
+    "ds_15": {
+      "type": "ds.chain",
+      "name": "ds_15",
+      "options": {
+        "extend": "ds_audit_base",
+        "query": "| eval Hour=strftime(_time, \"%H\"), Day=strftime(_time, \"%w %a\")\n| stats count by Hour Day\n| sort Day Hour"
+      }
+    },
+    "ds_19": {
+      "type": "ds.chain",
+      "name": "ds_19",
+      "options": {
+        "extend": "ds_audit_base",
+        "query": "| where isnotnull(audit_risk)\n| sort - _time\n| eval Time=strftime(_time, \"%Y-%m-%d %H:%M:%S\"), Details=coalesce(error_message, if(reason==\"None\" OR reason==\"\", null(), substr(reason, 1, 120)), \"-\")\n| rename audit_risk as Category, username as User, src as \"Source IP\", change_action as Operation, command as Command, result_status as Result\n| table Time Category User \"Source IP\" Operation Command Result Details"
+      }
+    },
+    "ds_22": {
+      "type": "ds.chain",
+      "name": "ds_22",
+      "options": {
+        "extend": "ds_audit_base",
+        "query": "| chart count over username by change_action\n| addtotals fieldname=_total\n| sort - _total | head 10\n| fields - _total"
+      }
+    },
+    "ds_23": {
+      "type": "ds.chain",
+      "name": "ds_23",
+      "options": {
+        "extend": "ds_audit_base",
+        "query": "| stats count as Count values(change_action) as Operation count(eval(result_status=\"failure\")) as Failed dc(username) as Users latest(_time) as last by command_group\n| eval \"Fail %\"=round(Failed/Count*100, 1), \"Last seen\"=strftime(last, \"%Y-%m-%d %H:%M\")\n| sort - Count\n| rename command_group as Command\n| table Command Operation Count Failed \"Fail %\" Users \"Last seen\""
+      }
+    },
+    "ds_26": {
+      "type": "ds.chain",
+      "name": "ds_26",
+      "options": {
+        "extend": "ds_audit_base",
+        "query": "| where result_status=\"failure\"\n| eval Error=coalesce(error_code, \"no error code\"), Message=coalesce(error_message, if(reason==\"None\" OR reason==\"\", result, substr(reason, 1, 100)))\n| stats count as Failures dc(username) as Users values(command_group) as cmds latest(_time) as last by Error Message\n| eval Commands=mvjoin(mvindex(cmds, 0, 1), \", \"), \"Last seen\"=strftime(last, \"%Y-%m-%d %H:%M\")\n| sort - Failures\n| table Error Message Failures Users Commands \"Last seen\""
+      }
+    },
+    "ds_27": {
+      "type": "ds.chain",
+      "name": "ds_27",
+      "options": {
+        "extend": "ds_audit_base",
+        "query": "| stats count by object_category\n| sort - count | head 12"
+      }
+    },
+    "ds_31": {
+      "type": "ds.chain",
+      "name": "ds_31",
+      "options": {
+        "extend": "ds_audit_base",
+        "query": "| head 500\n| eval Time=strftime(_time, \"%Y-%m-%d %H:%M:%S\")\n| rename username as User, src as \"Source IP\", controller as Controller, change_action as Operation, object_category as Category, command as Command, result as Result, result_status as Status\n| table Time User \"Source IP\" Controller Operation Category Command Result Status"
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "options": {
+      "width": 1440,
+      "height": 2126
+    },
+    "structure": [
+      {
+        "item": "viz_8",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_9",
+        "type": "block",
+        "position": {
+          "x": 240,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_10",
+        "type": "block",
+        "position": {
+          "x": 480,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_11",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_12",
+        "type": "block",
+        "position": {
+          "x": 960,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_13",
+        "type": "block",
+        "position": {
+          "x": 1200,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_16",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 150,
+          "w": 960,
+          "h": 290
+        }
+      },
+      {
+        "item": "viz_17",
+        "type": "block",
+        "position": {
+          "x": 960,
+          "y": 150,
+          "w": 480,
+          "h": 290
+        }
+      },
+      {
+        "item": "viz_section_18",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 440,
+          "w": 1440,
+          "h": 76
+        }
+      },
+      {
+        "item": "viz_20",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 516,
+          "w": 1440,
+          "h": 360
+        }
+      },
+      {
+        "item": "viz_section_21",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 876,
+          "w": 1440,
+          "h": 44
+        }
+      },
+      {
+        "item": "viz_24",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 920,
+          "w": 480,
+          "h": 330
+        }
+      },
+      {
+        "item": "viz_25",
+        "type": "block",
+        "position": {
+          "x": 480,
+          "y": 920,
+          "w": 960,
+          "h": 330
+        }
+      },
+      {
+        "item": "viz_28",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1250,
+          "w": 960,
+          "h": 330
+        }
+      },
+      {
+        "item": "viz_29",
+        "type": "block",
+        "position": {
+          "x": 960,
+          "y": 1250,
+          "w": 480,
+          "h": 330
+        }
+      },
+      {
+        "item": "viz_section_30",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1580,
+          "w": 1440,
+          "h": 76
+        }
+      },
+      {
+        "item": "viz_32",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1656,
+          "w": 1440,
+          "h": 470
+        }
+      }
+    ],
+    "globalInputs": [
+      "input_time",
+      "input_change_filter",
+      "input_result",
+      "input_risk",
+      "input_user",
+      "input_category",
+      "input_action_filter"
+    ]
+  }
+}
+  ]]></definition>
+  <meta type="hiddenElements"><![CDATA[
+{"hideEdit": false, "hideOpenInSearch": false, "hideExport": false}
+  ]]></meta>
+</dashboard>

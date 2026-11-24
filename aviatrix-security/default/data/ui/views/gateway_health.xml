@@ -1,247 +1,905 @@
-<form version="1.1" theme="dark">
+<dashboard version="2" theme="dark">
   <label>Gateway Health</label>
-  <description>Aviatrix Gateway performance and health monitoring</description>
-
-  <fieldset submitButton="false" autoRun="true">
-    <input type="time" token="time" searchWhenChanged="true">
-      <label>Time Range</label>
-      <default>
-        <earliest>-4h@h</earliest>
-        <latest>now</latest>
-      </default>
-    </input>
-    <input type="dropdown" token="gateway" searchWhenChanged="true">
-      <label>Gateway</label>
-      <choice value="*">All Gateways</choice>
-      <default>*</default>
-      <fieldForLabel>gateway</fieldForLabel>
-      <fieldForValue>gateway</fieldForValue>
-      <search>
-        <query>`aviatrix_gateway_system` | stats count by gateway | sort gateway</query>
-        <earliest>$time.earliest$</earliest>
-        <latest>$time.latest$</latest>
-      </search>
-    </input>
-  </fieldset>
-
-  <!-- Gateway Status Grid -->
-  <row>
-    <panel>
-      <title>Gateway Status (Last 15 min)</title>
-      <table>
-        <search>
-          <query>`aviatrix_gateway_system` earliest=-15m
-| stats latest(cpu_idle) as cpu_idle, latest(memory_available) as mem_avail, latest(memory_total) as mem_total, latest(disk_free) as disk_free, latest(disk_total) as disk_total, latest(_time) as last_seen by gateway
-| eval cpu_used=round(100-tonumber(cpu_idle), 1)
-| eval mem_used_pct=round((tonumber(mem_total)-tonumber(mem_avail))/tonumber(mem_total)*100, 1)
-| eval disk_used_pct=round((tonumber(disk_total)-tonumber(disk_free))/tonumber(disk_total)*100, 1)
-| eval status=case(cpu_used>90 OR mem_used_pct>90 OR disk_used_pct>90, "Critical", cpu_used>75 OR mem_used_pct>75 OR disk_used_pct>75, "Warning", 1=1, "Healthy")
-| eval last_seen=strftime(last_seen, "%H:%M:%S")
-| table gateway, status, cpu_used, mem_used_pct, disk_used_pct, last_seen
-| rename gateway as Gateway, status as Status, cpu_used as "CPU %", mem_used_pct as "Memory %", disk_used_pct as "Disk %", last_seen as "Last Seen"</query>
-          <earliest>-15m</earliest>
-          <latest>now</latest>
-          <refresh>1m</refresh>
-        </search>
-        <option name="count">20</option>
-        <option name="drilldown">row</option>
-        <format type="color" field="Status">
-          <colorPalette type="map">{"Healthy": 0x53A051, "Warning": 0xF8BE34, "Critical": 0xDC4E41}</colorPalette>
-        </format>
-        <format type="color" field="CPU %">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#53A051"></colorPalette>
-          <scale type="minMidMax" minValue="0" midValue="50" maxValue="100"></scale>
-        </format>
-        <format type="color" field="Memory %">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#53A051"></colorPalette>
-          <scale type="minMidMax" minValue="0" midValue="50" maxValue="100"></scale>
-        </format>
-        <format type="color" field="Disk %">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#53A051"></colorPalette>
-          <scale type="minMidMax" minValue="0" midValue="50" maxValue="100"></scale>
-        </format>
-        <drilldown>
-          <set token="form.gateway">$row.Gateway$</set>
-        </drilldown>
-      </table>
-    </panel>
-  </row>
-
-  <!-- CPU and Memory -->
-  <row>
-    <panel>
-      <title>CPU Utilization</title>
-      <chart>
-        <search>
-          <query>`aviatrix_gateway_system` gateway=$gateway$
-| eval cpu_used=100-tonumber(cpu_idle)
-| timechart avg(cpu_used) as "CPU %" by gateway</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="charting.chart">line</option>
-        <option name="charting.drilldown">none</option>
-        <option name="charting.legend.placement">bottom</option>
-        <option name="charting.axisY.minimumNumber">0</option>
-        <option name="charting.axisY.maximumNumber">100</option>
-        <option name="charting.axisTitleY.text">CPU %</option>
-        <option name="height">250</option>
-      </chart>
-    </panel>
-    <panel>
-      <title>Memory Utilization</title>
-      <chart>
-        <search>
-          <query>`aviatrix_gateway_system` gateway=$gateway$
-| eval mem_used_pct=round((tonumber(memory_total)-tonumber(memory_available))/tonumber(memory_total)*100, 1)
-| timechart avg(mem_used_pct) as "Memory %" by gateway</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="charting.chart">line</option>
-        <option name="charting.drilldown">none</option>
-        <option name="charting.legend.placement">bottom</option>
-        <option name="charting.axisY.minimumNumber">0</option>
-        <option name="charting.axisY.maximumNumber">100</option>
-        <option name="charting.axisTitleY.text">Memory %</option>
-        <option name="height">250</option>
-      </chart>
-    </panel>
-  </row>
-
-  <!-- Network Throughput -->
-  <row>
-    <panel>
-      <title>Network Throughput (RX)</title>
-      <chart>
-        <search>
-          <query>`aviatrix_gateway_network` gateway=$gateway$
-| rex field=syslog "total_rx_rate=(?&lt;v&gt;[\d.]+)(?&lt;u&gt;[KMG]?b)\b"
-| eval rx_rate=coalesce(rx_kbps, round(tonumber(v) * case(u=="Gb", 1048576, u=="Mb", 1024, u=="Kb", 1, u=="b", 1/1024), 2))
-| timechart avg(rx_rate) as "RX Kbps" by gateway</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="charting.chart">area</option>
-        <option name="charting.drilldown">none</option>
-        <option name="charting.legend.placement">bottom</option>
-        <option name="charting.axisTitleY.text">Kbps</option>
-        <option name="height">250</option>
-      </chart>
-    </panel>
-    <panel>
-      <title>Network Throughput (TX)</title>
-      <chart>
-        <search>
-          <query>`aviatrix_gateway_network` gateway=$gateway$
-| rex field=syslog "total_tx_rate=(?&lt;v&gt;[\d.]+)(?&lt;u&gt;[KMG]?b)\b"
-| eval tx_rate=coalesce(tx_kbps, round(tonumber(v) * case(u=="Gb", 1048576, u=="Mb", 1024, u=="Kb", 1, u=="b", 1/1024), 2))
-| timechart avg(tx_rate) as "TX Kbps" by gateway</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="charting.chart">area</option>
-        <option name="charting.drilldown">none</option>
-        <option name="charting.legend.placement">bottom</option>
-        <option name="charting.axisTitleY.text">Kbps</option>
-        <option name="height">250</option>
-      </chart>
-    </panel>
-  </row>
-
-  <!-- Connection Tracking -->
-  <row>
-    <panel>
-      <title>Connection Tracking</title>
-      <chart>
-        <search>
-          <query>`aviatrix_gateway_network` gateway=$gateway$
-| timechart avg(conntrack_count) as "Active Connections" by gateway</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="charting.chart">line</option>
-        <option name="charting.drilldown">none</option>
-        <option name="charting.legend.placement">bottom</option>
-        <option name="charting.axisTitleY.text">Connections</option>
-        <option name="height">250</option>
-      </chart>
-    </panel>
-    <panel>
-      <title>Limit Exceeded Events</title>
-      <table>
-        <search>
-          <query>`aviatrix_gateway_network` gateway=$gateway$
-| stats max(bw_in_limit_exceeded) as "BW In Exceeded", max(bw_out_limit_exceeded) as "BW Out Exceeded", max(pps_limit_exceeded) as "PPS Exceeded", max(conntrack_limit_exceeded) as "Conntrack Exceeded" by gateway
-| rename gateway as Gateway</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="count">10</option>
-        <option name="drilldown">none</option>
-        <format type="number" field="BW In Exceeded">
-          <option name="precision">0</option>
-        </format>
-        <format type="number" field="BW Out Exceeded">
-          <option name="precision">0</option>
-        </format>
-        <format type="number" field="PPS Exceeded">
-          <option name="precision">0</option>
-        </format>
-        <format type="number" field="Conntrack Exceeded">
-          <option name="precision">0</option>
-        </format>
-        <format type="color" field="BW In Exceeded">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" midValue="1000"></scale>
-        </format>
-        <format type="color" field="BW Out Exceeded">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" midValue="1000"></scale>
-        </format>
-        <format type="color" field="PPS Exceeded">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" midValue="1000"></scale>
-        </format>
-      </table>
-    </panel>
-  </row>
-
-  <!-- Disk Usage -->
-  <row>
-    <panel>
-      <title>Disk Usage</title>
-      <chart>
-        <search>
-          <query>`aviatrix_gateway_system` gateway=$gateway$
-| eval disk_used_pct=round((tonumber(disk_total)-tonumber(disk_free))/tonumber(disk_total)*100, 1)
-| timechart avg(disk_used_pct) as "Disk %" by gateway</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="charting.chart">line</option>
-        <option name="charting.drilldown">none</option>
-        <option name="charting.legend.placement">bottom</option>
-        <option name="charting.axisY.minimumNumber">0</option>
-        <option name="charting.axisY.maximumNumber">100</option>
-        <option name="charting.axisTitleY.text">Disk %</option>
-        <option name="height">200</option>
-      </chart>
-    </panel>
-    <panel>
-      <title>Gateway Details</title>
-      <table>
-        <search>
-          <query>`aviatrix_gateway_network` gateway=$gateway$
-| stats latest(public_ip) as "Public IP", latest(private_ip) as "Private IP", latest(interface) as Interface, latest(total_rx_cum) as "Total RX", latest(total_tx_cum) as "Total TX" by gateway
-| eval "Public IP"=if(match('Public IP', "^%\{"), "N/A", 'Public IP')
-| rename gateway as Gateway</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="count">10</option>
-        <option name="drilldown">none</option>
-      </table>
-    </panel>
-  </row>
-</form>
+  <description>Aviatrix gateway and controller health: saturation, throughput, cloud network allowances, tunnel stability and telemetry gaps.</description>
+  <definition><![CDATA[
+{
+  "title": "Gateway Health",
+  "description": "Aviatrix gateway and controller health: saturation, throughput, cloud network allowances, tunnel stability and telemetry gaps.",
+  "inputs": {
+    "input_time": {
+      "type": "input.timerange",
+      "title": "Time range",
+      "options": {
+        "token": "time",
+        "defaultValue": "-24h@h,now"
+      }
+    },
+    "input_gateway": {
+      "type": "input.dropdown",
+      "title": "Gateway",
+      "dataSources": {
+        "primary": "ds_input_gateway"
+      },
+      "options": {
+        "token": "gateway",
+        "defaultValue": "*",
+        "items": ">frame(label, value) | prepend(formattedStatics) | objects()"
+      },
+      "encoding": {
+        "label": "primary[0]",
+        "value": "primary[1]"
+      },
+      "context": {
+        "formattedConfig": {
+          "number": {
+            "prefix": ""
+          }
+        },
+        "formattedStatics": ">statics | formatByType(formattedConfig)",
+        "statics": [
+          [
+            "All gateways"
+          ],
+          [
+            "*"
+          ]
+        ],
+        "label": ">primary | seriesByName(\"label\") | renameSeries(\"label\") | formatByType(formattedConfig)",
+        "value": ">primary | seriesByName(\"value\") | renameSeries(\"value\") | formatByType(formattedConfig)"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$time.earliest$",
+            "latest": "$time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "visualizations": {
+    "viz_12": {
+      "type": "splunk.singlevalue",
+      "title": "Gateways reporting",
+      "dataSources": {
+        "primary": "ds_6"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"value\") | lastPoint()",
+        "trendDisplay": "off",
+        "sparklineDisplay": "off",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      }
+    },
+    "viz_13": {
+      "type": "splunk.singlevalue",
+      "title": "Silent",
+      "dataSources": {
+        "primary": "ds_7"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"value\") | lastPoint()",
+        "trendDisplay": "off",
+        "sparklineDisplay": "off",
+        "majorColor": "#fab219",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      },
+      "description": "Stopped reporting >15 min before the newest data"
+    },
+    "viz_14": {
+      "type": "splunk.singlevalue",
+      "title": "Warning or critical",
+      "dataSources": {
+        "primary": "ds_8"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"value\") | lastPoint()",
+        "trendDisplay": "off",
+        "sparklineDisplay": "off",
+        "majorColor": "#ec835a",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      }
+    },
+    "viz_15": {
+      "type": "splunk.singlevalue",
+      "title": "Peak CPU",
+      "dataSources": {
+        "primary": "ds_9"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"value\") | lastPoint()",
+        "trendDisplay": "off",
+        "sparklineDisplay": "off",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34,
+        "unit": "%",
+        "unitPosition": "after"
+      }
+    },
+    "viz_16": {
+      "type": "splunk.singlevalue",
+      "title": "Peak memory",
+      "dataSources": {
+        "primary": "ds_10"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"value\") | lastPoint()",
+        "trendDisplay": "off",
+        "sparklineDisplay": "off",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34,
+        "unit": "%",
+        "unitPosition": "after"
+      }
+    },
+    "viz_17": {
+      "type": "splunk.singlevalue",
+      "title": "Tunnel down events",
+      "dataSources": {
+        "primary": "ds_11"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#d03b3b",
+        "majorColor": "> majorValue | rangeValue(alertColors)",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      },
+      "context": {
+        "alertColors": [
+          {
+            "to": 1,
+            "value": "#f0efec"
+          },
+          {
+            "from": 1,
+            "value": "#d03b3b"
+          }
+        ]
+      }
+    },
+    "viz_section_18": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "#### STATUS\nLatest values per gateway, worst first. Allowance = AWS ENA packets shaped or dropped for exceeding the instance's bandwidth, PPS or conntrack allowance during the range.",
+        "fontColor": "#c3c2b7",
+        "fontSize": "custom",
+        "customFontSize": 13,
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_20": {
+      "type": "splunk.table",
+      "title": "Gateways",
+      "dataSources": {
+        "primary": "ds_19"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 10,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small",
+        "columnFormat": {
+          "Status": {
+            "rowColors": "> table | seriesByName(\"Status\") | matchValue(colors0)"
+          }
+        }
+      },
+      "context": {
+        "colors0": [
+          {
+            "match": "Allowed",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Would block",
+            "value": "#fab219"
+          },
+          {
+            "match": "Blocked",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Critical",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "High",
+            "value": "#f4a27f"
+          },
+          {
+            "match": "Medium",
+            "value": "#fab219"
+          },
+          {
+            "match": "Low",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Info",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Healthy",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Warning",
+            "value": "#fab219"
+          },
+          {
+            "match": "Silent",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Up",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Down",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Detected",
+            "value": "#fab219"
+          },
+          {
+            "match": "success",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "failure",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "created",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "modified",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "deleted",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "read",
+            "value": "#898781"
+          },
+          {
+            "match": "active",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "disconnected",
+            "value": "#898781"
+          }
+        ]
+      },
+      "description": "Click a gateway to focus the charts on it",
+      "eventHandlers": [
+        {
+          "type": "drilldown.setToken",
+          "options": {
+            "tokens": [
+              {
+                "token": "gateway",
+                "key": "row.Gateway.value"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "viz_section_21": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "#### SATURATION\nTop 10 gateways by peak in the range.",
+        "fontColor": "#c3c2b7",
+        "fontSize": "custom",
+        "customFontSize": 13,
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_24": {
+      "type": "splunk.line",
+      "title": "CPU used %",
+      "dataSources": {
+        "primary": "ds_22"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "legendDisplay": "bottom",
+        "xAxisTitleVisibility": "hide",
+        "seriesColors": [
+          "#3987e5",
+          "#d95926",
+          "#199e70",
+          "#c98500",
+          "#d55181",
+          "#0ca30c",
+          "#9085e9",
+          "#e66767"
+        ],
+        "yAxisTitleVisibility": "hide",
+        "yAxisMax": 100,
+        "yAxisMin": 0,
+        "lineWidth": 2
+      }
+    },
+    "viz_25": {
+      "type": "splunk.line",
+      "title": "Memory used %",
+      "dataSources": {
+        "primary": "ds_23"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "legendDisplay": "bottom",
+        "xAxisTitleVisibility": "hide",
+        "seriesColors": [
+          "#3987e5",
+          "#d95926",
+          "#199e70",
+          "#c98500",
+          "#d55181",
+          "#0ca30c",
+          "#9085e9",
+          "#e66767"
+        ],
+        "yAxisTitleVisibility": "hide",
+        "yAxisMax": 100,
+        "yAxisMin": 0,
+        "lineWidth": 2
+      }
+    },
+    "viz_28": {
+      "type": "splunk.line",
+      "title": "Throughput, RX + TX (Mbps)",
+      "dataSources": {
+        "primary": "ds_26"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "legendDisplay": "bottom",
+        "xAxisTitleVisibility": "hide",
+        "seriesColors": [
+          "#3987e5",
+          "#d95926",
+          "#199e70",
+          "#c98500",
+          "#d55181",
+          "#0ca30c",
+          "#9085e9",
+          "#e66767"
+        ],
+        "yAxisTitleVisibility": "hide",
+        "lineWidth": 2
+      }
+    },
+    "viz_29": {
+      "type": "splunk.line",
+      "title": "Tracked connections",
+      "dataSources": {
+        "primary": "ds_27"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "legendDisplay": "bottom",
+        "xAxisTitleVisibility": "hide",
+        "seriesColors": [
+          "#3987e5",
+          "#d95926",
+          "#199e70",
+          "#c98500",
+          "#d55181",
+          "#0ca30c",
+          "#9085e9",
+          "#e66767"
+        ],
+        "yAxisTitleVisibility": "hide",
+        "lineWidth": 2
+      }
+    },
+    "viz_section_30": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "#### TUNNELS",
+        "fontColor": "#c3c2b7",
+        "fontSize": "custom",
+        "customFontSize": 13,
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_33": {
+      "type": "splunk.table",
+      "title": "Tunnel state",
+      "dataSources": {
+        "primary": "ds_31"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 8,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small",
+        "columnFormat": {
+          "State": {
+            "rowColors": "> table | seriesByName(\"State\") | matchValue(colors0)"
+          }
+        }
+      },
+      "context": {
+        "colors0": [
+          {
+            "match": "Allowed",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Would block",
+            "value": "#fab219"
+          },
+          {
+            "match": "Blocked",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Critical",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "High",
+            "value": "#f4a27f"
+          },
+          {
+            "match": "Medium",
+            "value": "#fab219"
+          },
+          {
+            "match": "Low",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Info",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Healthy",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Warning",
+            "value": "#fab219"
+          },
+          {
+            "match": "Silent",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Up",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Down",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Detected",
+            "value": "#fab219"
+          },
+          {
+            "match": "success",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "failure",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "created",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "modified",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "deleted",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "read",
+            "value": "#898781"
+          },
+          {
+            "match": "active",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "disconnected",
+            "value": "#898781"
+          }
+        ]
+      }
+    },
+    "viz_34": {
+      "type": "splunk.column",
+      "title": "Tunnel changes",
+      "dataSources": {
+        "primary": "ds_32"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "legendDisplay": "bottom",
+        "xAxisTitleVisibility": "hide",
+        "seriesColors": [
+          "#3987e5",
+          "#d95926",
+          "#199e70",
+          "#c98500",
+          "#d55181",
+          "#0ca30c",
+          "#9085e9",
+          "#e66767"
+        ],
+        "yAxisTitleVisibility": "hide",
+        "seriesColorsByField": {
+          "Up": "#0ca30c",
+          "Down": "#d03b3b"
+        },
+        "stackMode": "stacked"
+      }
+    }
+  },
+  "dataSources": {
+    "ds_input_gateway": {
+      "type": "ds.search",
+      "name": "ds_input_gateway",
+      "options": {
+        "query": "| tstats count where `aviatrix_index` (sourcetype=\"aviatrix:gateway:system\" OR sourcetype=\"aviatrix:gateway:network\") by host\n| sort - count | head 300\n| eval label=host, value=host | fields label value",
+        "queryParameters": {
+          "earliest": "$time.earliest$",
+          "latest": "$time.latest$"
+        }
+      }
+    },
+    "ds_sys_time": {
+      "type": "ds.search",
+      "name": "ds_sys_time",
+      "options": {
+        "query": "`aviatrix_gateway_system` gateway=$gateway$\n| eval cpu=100-tonumber(cpu_idle), mem=round((tonumber(memory_total)-tonumber(memory_available))/tonumber(memory_total)*100, 1), disk=round((tonumber(disk_total)-tonumber(disk_free))/tonumber(disk_total)*100, 1)\n| bin _time bins=100\n| stats max(cpu) as cpu max(mem) as mem max(disk) as disk by _time gateway"
+      }
+    },
+    "ds_net_time": {
+      "type": "ds.search",
+      "name": "ds_net_time",
+      "options": {
+        "query": "`aviatrix_gateway_network` gateway=$gateway$\n| eval rx=coalesce(rx_kbps, tonumber(total_rx_rate)), tx=coalesce(tx_kbps, tonumber(total_tx_rate)), ct=tonumber(conntrack_count)\n| bin _time bins=100\n| stats max(rx) as rx max(tx) as tx max(ct) as ct by _time gateway interface\n| stats sum(rx) as rx sum(tx) as tx sum(ct) as ct by _time gateway"
+      }
+    },
+    "ds_gw_status": {
+      "type": "ds.search",
+      "name": "ds_gw_status",
+      "options": {
+        "query": "`aviatrix_gateway_system` gateway=$gateway$\n| eval cpu=100-tonumber(cpu_idle), mem=round((tonumber(memory_total)-tonumber(memory_available))/tonumber(memory_total)*100, 1), disk=round((tonumber(disk_total)-tonumber(disk_free))/tonumber(disk_total)*100, 1)\n| stats latest(cpu) as cpu max(cpu) as cpu_peak latest(mem) as mem latest(disk) as disk latest(_time) as last by gateway\n| append [ search `aviatrix_gateway_network` gateway=$gateway$\n    | eval rx=coalesce(rx_kbps, tonumber(total_rx_rate)), tx=coalesce(tx_kbps, tonumber(total_tx_rate))\n    | stats latest(rx) as rx latest(tx) as tx latest(conntrack_count) as ct max(eval(tonumber(bw_in_limit_exceeded)))  as bi max(eval(tonumber(bw_out_limit_exceeded))) as bo max(eval(tonumber(pps_limit_exceeded))) as pps max(eval(tonumber(conntrack_limit_exceeded))) as ctx min(eval(tonumber(bw_in_limit_exceeded))) as bi0 min(eval(tonumber(bw_out_limit_exceeded))) as bo0 min(eval(tonumber(pps_limit_exceeded))) as pps0 min(eval(tonumber(conntrack_limit_exceeded))) as ctx0 latest(_time) as nlast by gateway interface\n    | eval allowance=(bi-bi0)+(bo-bo0)+(pps-pps0)+(ctx-ctx0)\n    | stats sum(rx) as rx sum(tx) as tx sum(ct) as ct sum(allowance) as allowance max(nlast) as nlast by gateway ]\n| stats values(*) as * by gateway\n| eval last=max(last, nlast)\n| eventstats max(last) as newest\n| eval Status=case(newest-last>900, \"Silent\", cpu>90 OR mem>90 OR disk>90, \"Critical\", cpu>75 OR mem>75 OR disk>85 OR allowance>0, \"Warning\", 1=1, \"Healthy\")\n| eval rank=case(Status==\"Critical\", 1, Status==\"Warning\", 2, Status==\"Silent\", 3, 1=1, 4)\n| sort 0 rank - cpu_peak"
+      }
+    },
+    "ds_tunnels": {
+      "type": "ds.search",
+      "name": "ds_tunnels",
+      "options": {
+        "query": "`aviatrix_tunnel`\n| eval src_name=coalesce(src_gw_name, replace(src_gw, \"\\(.*\", \"\")), dst_name=coalesce(dst_gw_name, replace(dst_gw, \"\\(.*\", \"\"))\n| where \"$gateway$\"=\"*\" OR src_name=\"$gateway$\" OR dst_name=\"$gateway$\"\n| eval tunnel=src_name.\" <> \".dst_name"
+      }
+    },
+    "ds_6": {
+      "type": "ds.chain",
+      "name": "ds_6",
+      "options": {
+        "extend": "ds_gw_status",
+        "query": "| stats count as value"
+      }
+    },
+    "ds_7": {
+      "type": "ds.chain",
+      "name": "ds_7",
+      "options": {
+        "extend": "ds_gw_status",
+        "query": "| where Status=\"Silent\" | stats count as value"
+      }
+    },
+    "ds_8": {
+      "type": "ds.chain",
+      "name": "ds_8",
+      "options": {
+        "extend": "ds_gw_status",
+        "query": "| where Status=\"Warning\" OR Status=\"Critical\" | stats count as value"
+      }
+    },
+    "ds_9": {
+      "type": "ds.chain",
+      "name": "ds_9",
+      "options": {
+        "extend": "ds_sys_time",
+        "query": "| stats max(cpu) as value"
+      }
+    },
+    "ds_10": {
+      "type": "ds.chain",
+      "name": "ds_10",
+      "options": {
+        "extend": "ds_sys_time",
+        "query": "| stats max(mem) as value"
+      }
+    },
+    "ds_11": {
+      "type": "ds.chain",
+      "name": "ds_11",
+      "options": {
+        "extend": "ds_tunnels",
+        "query": "| timechart count(eval(new_state=\"Down\")) as value\n| fillnull value=0 value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_19": {
+      "type": "ds.chain",
+      "name": "ds_19",
+      "options": {
+        "extend": "ds_gw_status",
+        "query": "| eval \"CPU %\"=round(cpu, 0), \"Peak CPU %\"=round(cpu_peak, 0), \"Memory %\"=mem, \"Disk %\"=disk, \"RX Mbps\"=round(rx/1024, 2), \"TX Mbps\"=round(tx/1024, 2), Conntrack=ct, \"Allowance exceeded\"=coalesce(allowance, 0), \"Last seen\"=strftime(last, \"%Y-%m-%d %H:%M\")\n| rename gateway as Gateway\n| table Gateway Status \"CPU %\" \"Peak CPU %\" \"Memory %\" \"Disk %\" \"RX Mbps\" \"TX Mbps\" Conntrack \"Allowance exceeded\" \"Last seen\""
+      }
+    },
+    "ds_22": {
+      "type": "ds.chain",
+      "name": "ds_22",
+      "options": {
+        "extend": "ds_sys_time",
+        "query": "| timechart max(cpu) by gateway where max in top10"
+      }
+    },
+    "ds_23": {
+      "type": "ds.chain",
+      "name": "ds_23",
+      "options": {
+        "extend": "ds_sys_time",
+        "query": "| timechart max(mem) by gateway where max in top10"
+      }
+    },
+    "ds_26": {
+      "type": "ds.chain",
+      "name": "ds_26",
+      "options": {
+        "extend": "ds_net_time",
+        "query": "| eval mbps=round((rx+tx)/1024, 2) | timechart max(mbps) by gateway where max in top10"
+      }
+    },
+    "ds_27": {
+      "type": "ds.chain",
+      "name": "ds_27",
+      "options": {
+        "extend": "ds_net_time",
+        "query": "| timechart max(ct) by gateway where max in top10"
+      }
+    },
+    "ds_31": {
+      "type": "ds.chain",
+      "name": "ds_31",
+      "options": {
+        "extend": "ds_tunnels",
+        "query": "| stats latest(new_state) as State count(eval(new_state=\"Down\")) as \"Down events\" count as Changes latest(_time) as last values(src_cloud) as sc values(src_region) as sr values(dst_region) as dr by tunnel\n| eval \"Last change\"=strftime(last, \"%Y-%m-%d %H:%M\"), Location=mvjoin(mvdedup(mvappend(sr, dr)), \", \")\n| sort - \"Down events\"\n| rename tunnel as Tunnel\n| table Tunnel State \"Down events\" Changes Location \"Last change\""
+      }
+    },
+    "ds_32": {
+      "type": "ds.chain",
+      "name": "ds_32",
+      "options": {
+        "extend": "ds_tunnels",
+        "query": "| timechart count by new_state"
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "options": {
+      "width": 1440,
+      "height": 1656
+    },
+    "structure": [
+      {
+        "item": "viz_12",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_13",
+        "type": "block",
+        "position": {
+          "x": 240,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_14",
+        "type": "block",
+        "position": {
+          "x": 480,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_15",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_16",
+        "type": "block",
+        "position": {
+          "x": 960,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_17",
+        "type": "block",
+        "position": {
+          "x": 1200,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_section_18",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 150,
+          "w": 1440,
+          "h": 76
+        }
+      },
+      {
+        "item": "viz_20",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 226,
+          "w": 1440,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_section_21",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 626,
+          "w": 1440,
+          "h": 76
+        }
+      },
+      {
+        "item": "viz_24",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 702,
+          "w": 720,
+          "h": 290
+        }
+      },
+      {
+        "item": "viz_25",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 702,
+          "w": 720,
+          "h": 290
+        }
+      },
+      {
+        "item": "viz_28",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 992,
+          "w": 720,
+          "h": 290
+        }
+      },
+      {
+        "item": "viz_29",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 992,
+          "w": 720,
+          "h": 290
+        }
+      },
+      {
+        "item": "viz_section_30",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1282,
+          "w": 1440,
+          "h": 44
+        }
+      },
+      {
+        "item": "viz_33",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1326,
+          "w": 960,
+          "h": 330
+        }
+      },
+      {
+        "item": "viz_34",
+        "type": "block",
+        "position": {
+          "x": 960,
+          "y": 1326,
+          "w": 480,
+          "h": 330
+        }
+      }
+    ],
+    "globalInputs": [
+      "input_time",
+      "input_gateway"
+    ]
+  }
+}
+  ]]></definition>
+  <meta type="hiddenElements"><![CDATA[
+{"hideEdit": false, "hideOpenInSearch": false, "hideExport": false}
+  ]]></meta>
+</dashboard>

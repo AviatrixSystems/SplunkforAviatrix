@@ -1,285 +1,1339 @@
-<form version="1.1" theme="dark">
+<dashboard version="2" theme="dark">
   <label>Threat Detection</label>
-  <description>Aviatrix IDS (Suricata) alert analysis and investigation</description>
-
-  <fieldset submitButton="false" autoRun="true">
-    <input type="time" token="time" searchWhenChanged="true">
-      <label>Time Range</label>
-      <default>
-        <earliest>-24h@h</earliest>
-        <latest>now</latest>
-      </default>
-    </input>
-    <input type="dropdown" token="severity" searchWhenChanged="true">
-      <label>Severity</label>
-      <choice value="*">All Severities</choice>
-      <choice value="1">Critical (1)</choice>
-      <choice value="2">High (2)</choice>
-      <choice value="3">Medium (3)</choice>
-      <choice value="4">Low (4)</choice>
-      <default>*</default>
-    </input>
-    <input type="text" token="signature" searchWhenChanged="false">
-      <label>Signature Filter</label>
-      <default>*</default>
-    </input>
-    <input type="text" token="src_ip" searchWhenChanged="false">
-      <label>Source IP</label>
-      <default>*</default>
-    </input>
-    <input type="text" token="dest_ip" searchWhenChanged="false">
-      <label>Destination IP</label>
-      <default>*</default>
-    </input>
-  </fieldset>
-
-  <!-- KPI Row -->
-  <row>
-    <panel>
-      <title>Total Alerts</title>
-      <single>
-        <search>
-          <query>`aviatrix_ids_alerts` severity_id=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature|s$
-| stats count</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="colorMode">none</option>
-        <option name="useThousandSeparators">1</option>
-      </single>
-    </panel>
-    <panel>
-      <title>Critical Alerts</title>
-      <single>
-        <search>
-          <query>`aviatrix_ids_alerts` severity_id=1 src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature|s$
-| stats count</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="drilldown">all</option>
-        <option name="colorMode">block</option>
-        <option name="rangeColors">["0x53a051","0xdc4e41"]</option>
-        <option name="rangeValues">[0]</option>
-        <option name="useColors">1</option>
-        <drilldown>
-          <set token="form.severity">1</set>
-        </drilldown>
-      </single>
-    </panel>
-    <panel>
-      <title>High Severity</title>
-      <single>
-        <search>
-          <query>`aviatrix_ids_alerts` severity_id=2 src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature|s$
-| stats count</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="drilldown">all</option>
-        <option name="colorMode">block</option>
-        <option name="rangeColors">["0x53a051","0xf1813f"]</option>
-        <option name="rangeValues">[0]</option>
-        <option name="useColors">1</option>
-        <drilldown>
-          <set token="form.severity">2</set>
-        </drilldown>
-      </single>
-    </panel>
-    <panel>
-      <title>Unique Signatures</title>
-      <single>
-        <search>
-          <query>`aviatrix_ids_alerts` severity_id=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature|s$
-| stats dc(signature)</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="colorMode">none</option>
-      </single>
-    </panel>
-    <panel>
-      <title>Unique Sources</title>
-      <single>
-        <search>
-          <query>`aviatrix_ids_alerts` severity_id=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature|s$
-| stats dc(src_ip)</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="colorMode">none</option>
-      </single>
-    </panel>
-  </row>
-
-  <!-- Timeline and Severity -->
-  <row>
-    <panel>
-      <title>Alert Timeline by Severity</title>
-      <chart>
-        <search>
-          <query>`aviatrix_ids_alerts` severity_id=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature|s$
-| eval severity_label=case(severity_id=1, "1-Critical", severity_id=2, "2-High", severity_id=3, "3-Medium", severity_id=4, "4-Low", 1=1, "Other")
-| timechart count by severity_label</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="charting.chart">area</option>
-        <option name="charting.chart.stackMode">stacked</option>
-        <option name="charting.drilldown">none</option>
-        <option name="charting.legend.placement">bottom</option>
-        <option name="charting.fieldColors">{"1-Critical": 0xDC4E41, "2-High": 0xF1813F, "3-Medium": 0xF8BE34, "4-Low": 0x53A051}</option>
-        <option name="height">250</option>
-      </chart>
-    </panel>
-    <panel>
-      <title>Alert Categories</title>
-      <chart>
-        <search>
-          <query>`aviatrix_ids_alerts` severity_id=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature|s$
-| stats count by category
-| sort - count</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="charting.chart">pie</option>
-        <option name="charting.drilldown">all</option>
-        <option name="height">250</option>
-      </chart>
-    </panel>
-  </row>
-
-  <!-- Signatures and Sources -->
-  <row>
-    <panel>
-      <title>Top Triggered Signatures</title>
-      <table>
-        <search>
-          <query>`aviatrix_ids_alerts` severity_id=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature|s$
-| stats count as Alerts, dc(src_ip) as "Unique Sources", dc(dest_ip) as "Unique Targets", values(category) as Categories by signature, signature_id, severity_id
-| sort - Alerts
-| head 20
-| rename signature as Signature, signature_id as SID, severity_id as Severity</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="count">10</option>
-        <option name="drilldown">row</option>
-        <format type="color" field="Severity">
-          <colorPalette type="map">{"1": 0xDC4E41, "2": 0xF1813F, "3": 0xF8BE34, "4": 0x53A051}</colorPalette>
-        </format>
-        <drilldown>
-          <set token="form.signature">$row.Signature$</set>
-        </drilldown>
-      </table>
-    </panel>
-  </row>
-
-  <!-- Investigation -->
-  <row>
-    <panel>
-      <title>Source IP Investigation</title>
-      <table>
-        <search>
-          <query>`aviatrix_ids_alerts` severity_id=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature|s$
-| stats count as Alerts, dc(signature) as "Unique Sigs", dc(dest_ip) as "Targets", values(category) as Categories by src_ip
-| sort - Alerts
-| head 20
-| rename src_ip as "Source IP"</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="count">10</option>
-        <option name="drilldown">row</option>
-        <format type="color" field="Alerts">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" midValue="10"></scale>
-        </format>
-        <drilldown>
-          <set token="form.src_ip">$row.Source IP$</set>
-        </drilldown>
-      </table>
-    </panel>
-    <panel>
-      <title>Target Investigation</title>
-      <table>
-        <search>
-          <query>`aviatrix_ids_alerts` severity_id=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature|s$
-| stats count as Alerts, dc(signature) as "Unique Sigs", dc(src_ip) as "Attackers", values(category) as Categories by dest_ip
-| sort - Alerts
-| head 20
-| rename dest_ip as "Target IP"</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="count">10</option>
-        <option name="drilldown">row</option>
-        <format type="color" field="Alerts">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" midValue="10"></scale>
-        </format>
-        <drilldown>
-          <set token="form.dest_ip">$row.Target IP$</set>
-        </drilldown>
-      </table>
-    </panel>
-  </row>
-
-  <!-- HTTP Analysis -->
-  <row>
-    <panel>
-      <title>HTTP Details (where available)</title>
-      <table>
-        <search>
-          <query>`aviatrix_ids_alerts` severity_id=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature|s$
-| where isnotnull(http_method)
-| table _time, src_ip, dest_ip, http_method, http_hostname, http_url, http_user_agent, signature
-| head 100
-| rename src_ip as "Source", dest_ip as "Destination", http_method as "Method", http_hostname as "Host", http_url as "URL", http_user_agent as "User-Agent", signature as "Signature"</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="count">10</option>
-        <option name="drilldown">row</option>
-        <option name="wrap">true</option>
-      </table>
-    </panel>
-  </row>
-
-  <!-- Raw Events -->
-  <row>
-    <panel>
-      <title>Alert Events</title>
-      <event>
-        <search>
-          <query>`aviatrix_ids_alerts` severity_id=$severity$ src_ip=$src_ip$ dest_ip=$dest_ip$
-| search signature=$signature|s$</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="count">10</option>
-        <option name="list.drilldown">full</option>
-        <option name="list.wrap">1</option>
-        <option name="maxLines">5</option>
-        <option name="raw.drilldown">full</option>
-        <option name="rowNumbers">0</option>
-        <option name="table.drilldown">all</option>
-        <option name="type">list</option>
-      </event>
-    </panel>
-  </row>
-</form>
+  <description>Suricata IDS alerts and L7 inline IPS verdicts, pivoted on the affected workload and the external peer, with MITRE ATT&amp;CK context.</description>
+  <definition><![CDATA[
+{
+  "title": "Threat Detection",
+  "description": "Suricata IDS alerts and L7 inline IPS verdicts, pivoted on the affected workload and the external peer, with MITRE ATT&CK context.",
+  "inputs": {
+    "input_time": {
+      "type": "input.timerange",
+      "title": "Time range",
+      "options": {
+        "token": "time",
+        "defaultValue": "-7d@h,now"
+      }
+    },
+    "input_gateway": {
+      "type": "input.dropdown",
+      "title": "Gateway",
+      "dataSources": {
+        "primary": "ds_input_gateway"
+      },
+      "options": {
+        "token": "gateway",
+        "defaultValue": "*",
+        "items": ">frame(label, value) | prepend(formattedStatics) | objects()"
+      },
+      "encoding": {
+        "label": "primary[0]",
+        "value": "primary[1]"
+      },
+      "context": {
+        "formattedConfig": {
+          "number": {
+            "prefix": ""
+          }
+        },
+        "formattedStatics": ">statics | formatByType(formattedConfig)",
+        "statics": [
+          [
+            "All gateways"
+          ],
+          [
+            "*"
+          ]
+        ],
+        "label": ">primary | seriesByName(\"label\") | renameSeries(\"label\") | formatByType(formattedConfig)",
+        "value": ">primary | seriesByName(\"value\") | renameSeries(\"value\") | formatByType(formattedConfig)"
+      }
+    },
+    "input_severity": {
+      "type": "input.dropdown",
+      "title": "Severity",
+      "options": {
+        "token": "severity",
+        "defaultValue": "*",
+        "items": [
+          {
+            "label": "All",
+            "value": "*"
+          },
+          {
+            "label": "Critical",
+            "value": "1"
+          },
+          {
+            "label": "High",
+            "value": "2"
+          },
+          {
+            "label": "Medium",
+            "value": "3"
+          },
+          {
+            "label": "Low",
+            "value": "4"
+          }
+        ]
+      }
+    },
+    "input_engine": {
+      "type": "input.dropdown",
+      "title": "Engine",
+      "options": {
+        "token": "engine",
+        "defaultValue": "*",
+        "items": [
+          {
+            "label": "All",
+            "value": "*"
+          },
+          {
+            "label": "Suricata IDS",
+            "value": "Suricata IDS"
+          },
+          {
+            "label": "L7 inline IPS",
+            "value": "L7 inline IPS"
+          }
+        ]
+      }
+    },
+    "input_signature": {
+      "type": "input.text",
+      "title": "Signature",
+      "options": {
+        "token": "signature",
+        "defaultValue": "*"
+      }
+    },
+    "input_asset": {
+      "type": "input.text",
+      "title": "Asset IP (either side)",
+      "options": {
+        "token": "asset",
+        "defaultValue": "*"
+      }
+    },
+    "input_src_ip": {
+      "type": "input.text",
+      "title": "Source IP",
+      "options": {
+        "token": "src_ip",
+        "defaultValue": "*"
+      }
+    },
+    "input_dest_ip": {
+      "type": "input.text",
+      "title": "Destination IP",
+      "options": {
+        "token": "dest_ip",
+        "defaultValue": "*"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$time.earliest$",
+            "latest": "$time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "visualizations": {
+    "viz_10": {
+      "type": "splunk.singlevalue",
+      "title": "Alerts",
+      "dataSources": {
+        "primary": "ds_4"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#3987e5",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      }
+    },
+    "viz_11": {
+      "type": "splunk.singlevalue",
+      "title": "Critical + high",
+      "dataSources": {
+        "primary": "ds_5"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#d03b3b",
+        "majorColor": "> majorValue | rangeValue(alertColors)",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      },
+      "context": {
+        "alertColors": [
+          {
+            "to": 1,
+            "value": "#f0efec"
+          },
+          {
+            "from": 1,
+            "value": "#d03b3b"
+          }
+        ]
+      }
+    },
+    "viz_12": {
+      "type": "splunk.singlevalue",
+      "title": "Blocked inline",
+      "dataSources": {
+        "primary": "ds_6"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#3987e5",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      },
+      "description": "Dropped by IPS"
+    },
+    "viz_13": {
+      "type": "splunk.singlevalue",
+      "title": "Signatures",
+      "dataSources": {
+        "primary": "ds_7"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"value\") | lastPoint()",
+        "trendDisplay": "off",
+        "sparklineDisplay": "off",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      }
+    },
+    "viz_14": {
+      "type": "splunk.singlevalue",
+      "title": "Internal hosts",
+      "dataSources": {
+        "primary": "ds_8"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"value\") | lastPoint()",
+        "trendDisplay": "off",
+        "sparklineDisplay": "off",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      },
+      "description": "Workloads involved"
+    },
+    "viz_15": {
+      "type": "splunk.singlevalue",
+      "title": "External peers",
+      "dataSources": {
+        "primary": "ds_9"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"value\") | lastPoint()",
+        "trendDisplay": "off",
+        "sparklineDisplay": "off",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      }
+    },
+    "viz_18": {
+      "type": "splunk.column",
+      "title": "Alerts by severity",
+      "dataSources": {
+        "primary": "ds_16"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "legendDisplay": "bottom",
+        "xAxisTitleVisibility": "hide",
+        "seriesColors": [
+          "#3987e5",
+          "#d95926",
+          "#199e70",
+          "#c98500",
+          "#d55181",
+          "#0ca30c",
+          "#9085e9",
+          "#e66767"
+        ],
+        "yAxisTitleVisibility": "hide",
+        "seriesColorsByField": {
+          "Critical": "#d03b3b",
+          "High": "#ec835a",
+          "Medium": "#fab219",
+          "Low": "#3987e5",
+          "Info": "#6b6f76"
+        },
+        "stackMode": "stacked"
+      }
+    },
+    "viz_19": {
+      "type": "splunk.bar",
+      "title": "MITRE ATT&CK tactics",
+      "dataSources": {
+        "primary": "ds_17"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "legendDisplay": "off",
+        "xAxisTitleVisibility": "hide",
+        "seriesColors": [
+          "#3987e5",
+          "#d95926",
+          "#199e70",
+          "#c98500",
+          "#d55181",
+          "#0ca30c",
+          "#9085e9",
+          "#e66767"
+        ],
+        "yAxisTitleVisibility": "hide"
+      },
+      "description": "From ET rule metadata; Unmapped = no MITRE tag"
+    },
+    "viz_section_20": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "#### SIGNATURES",
+        "fontColor": "#c3c2b7",
+        "fontSize": "custom",
+        "customFontSize": 13,
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_22": {
+      "type": "splunk.table",
+      "title": "Top signatures",
+      "dataSources": {
+        "primary": "ds_21"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 10,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small",
+        "columnFormat": {
+          "Severity": {
+            "rowColors": "> table | seriesByName(\"Severity\") | matchValue(colors0)",
+            "width": 80
+          },
+          "Outcome": {
+            "rowColors": "> table | seriesByName(\"Outcome\") | matchValue(colors1)"
+          },
+          "Signature": {
+            "width": 420
+          }
+        }
+      },
+      "context": {
+        "colors0": [
+          {
+            "match": "Allowed",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Would block",
+            "value": "#fab219"
+          },
+          {
+            "match": "Blocked",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Critical",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "High",
+            "value": "#f4a27f"
+          },
+          {
+            "match": "Medium",
+            "value": "#fab219"
+          },
+          {
+            "match": "Low",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Info",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Healthy",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Warning",
+            "value": "#fab219"
+          },
+          {
+            "match": "Silent",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Up",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Down",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Detected",
+            "value": "#fab219"
+          },
+          {
+            "match": "success",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "failure",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "created",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "modified",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "deleted",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "read",
+            "value": "#898781"
+          },
+          {
+            "match": "active",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "disconnected",
+            "value": "#898781"
+          }
+        ],
+        "colors1": [
+          {
+            "match": "Allowed",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Would block",
+            "value": "#fab219"
+          },
+          {
+            "match": "Blocked",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Critical",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "High",
+            "value": "#f4a27f"
+          },
+          {
+            "match": "Medium",
+            "value": "#fab219"
+          },
+          {
+            "match": "Low",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Info",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Healthy",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Warning",
+            "value": "#fab219"
+          },
+          {
+            "match": "Silent",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Up",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Down",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Detected",
+            "value": "#fab219"
+          },
+          {
+            "match": "success",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "failure",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "created",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "modified",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "deleted",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "read",
+            "value": "#898781"
+          },
+          {
+            "match": "active",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "disconnected",
+            "value": "#898781"
+          }
+        ]
+      },
+      "description": "Click a signature to focus the dashboard on it",
+      "eventHandlers": [
+        {
+          "type": "drilldown.setToken",
+          "options": {
+            "tokens": [
+              {
+                "token": "signature",
+                "key": "row.Signature.value"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "viz_section_23": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "#### WHO IS INVOLVED\nInternal host = the private side of the alert, whatever its direction.",
+        "fontColor": "#c3c2b7",
+        "fontSize": "custom",
+        "customFontSize": 13,
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_26": {
+      "type": "splunk.table",
+      "title": "Affected internal hosts",
+      "dataSources": {
+        "primary": "ds_24"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 9,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small",
+        "columnFormat": {
+          "Severity": {
+            "rowColors": "> table | seriesByName(\"Severity\") | matchValue(colors0)"
+          }
+        }
+      },
+      "context": {
+        "colors0": [
+          {
+            "match": "Allowed",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Would block",
+            "value": "#fab219"
+          },
+          {
+            "match": "Blocked",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Critical",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "High",
+            "value": "#f4a27f"
+          },
+          {
+            "match": "Medium",
+            "value": "#fab219"
+          },
+          {
+            "match": "Low",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Info",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Healthy",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Warning",
+            "value": "#fab219"
+          },
+          {
+            "match": "Silent",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Up",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Down",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Detected",
+            "value": "#fab219"
+          },
+          {
+            "match": "success",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "failure",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "created",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "modified",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "deleted",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "read",
+            "value": "#898781"
+          },
+          {
+            "match": "active",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "disconnected",
+            "value": "#898781"
+          }
+        ]
+      },
+      "eventHandlers": [
+        {
+          "type": "drilldown.setToken",
+          "options": {
+            "tokens": [
+              {
+                "token": "asset",
+                "key": "row.Host.value"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "viz_27": {
+      "type": "splunk.table",
+      "title": "External peers",
+      "dataSources": {
+        "primary": "ds_25"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 9,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small",
+        "columnFormat": {
+          "Severity": {
+            "rowColors": "> table | seriesByName(\"Severity\") | matchValue(colors0)"
+          }
+        }
+      },
+      "context": {
+        "colors0": [
+          {
+            "match": "Allowed",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Would block",
+            "value": "#fab219"
+          },
+          {
+            "match": "Blocked",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Critical",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "High",
+            "value": "#f4a27f"
+          },
+          {
+            "match": "Medium",
+            "value": "#fab219"
+          },
+          {
+            "match": "Low",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Info",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Healthy",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Warning",
+            "value": "#fab219"
+          },
+          {
+            "match": "Silent",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Up",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Down",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Detected",
+            "value": "#fab219"
+          },
+          {
+            "match": "success",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "failure",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "created",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "modified",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "deleted",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "read",
+            "value": "#898781"
+          },
+          {
+            "match": "active",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "disconnected",
+            "value": "#898781"
+          }
+        ]
+      },
+      "eventHandlers": [
+        {
+          "type": "drilldown.setToken",
+          "options": {
+            "tokens": [
+              {
+                "token": "asset",
+                "key": "row.Peer.value"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "viz_section_28": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "#### ALERT RECORDS\nMost recent 500. Click a row to open the raw event in Search.",
+        "fontColor": "#c3c2b7",
+        "fontSize": "custom",
+        "customFontSize": 13,
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_30": {
+      "type": "splunk.table",
+      "title": "Alerts",
+      "dataSources": {
+        "primary": "ds_threat_events"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 12,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small",
+        "columnFormat": {
+          "Severity": {
+            "rowColors": "> table | seriesByName(\"Severity\") | matchValue(colors0)"
+          },
+          "Outcome": {
+            "rowColors": "> table | seriesByName(\"Outcome\") | matchValue(colors1)"
+          }
+        }
+      },
+      "context": {
+        "colors0": [
+          {
+            "match": "Allowed",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Would block",
+            "value": "#fab219"
+          },
+          {
+            "match": "Blocked",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Critical",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "High",
+            "value": "#f4a27f"
+          },
+          {
+            "match": "Medium",
+            "value": "#fab219"
+          },
+          {
+            "match": "Low",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Info",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Healthy",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Warning",
+            "value": "#fab219"
+          },
+          {
+            "match": "Silent",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Up",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Down",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Detected",
+            "value": "#fab219"
+          },
+          {
+            "match": "success",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "failure",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "created",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "modified",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "deleted",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "read",
+            "value": "#898781"
+          },
+          {
+            "match": "active",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "disconnected",
+            "value": "#898781"
+          }
+        ],
+        "colors1": [
+          {
+            "match": "Allowed",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Would block",
+            "value": "#fab219"
+          },
+          {
+            "match": "Blocked",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Critical",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "High",
+            "value": "#f4a27f"
+          },
+          {
+            "match": "Medium",
+            "value": "#fab219"
+          },
+          {
+            "match": "Low",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Info",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Healthy",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Warning",
+            "value": "#fab219"
+          },
+          {
+            "match": "Silent",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Up",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Down",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Detected",
+            "value": "#fab219"
+          },
+          {
+            "match": "success",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "failure",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "created",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "modified",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "deleted",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "read",
+            "value": "#898781"
+          },
+          {
+            "match": "active",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "disconnected",
+            "value": "#898781"
+          }
+        ]
+      },
+      "eventHandlers": [
+        {
+          "type": "drilldown.linkToSearch",
+          "options": {
+            "type": "auto",
+            "newTab": true
+          }
+        }
+      ]
+    }
+  },
+  "dataSources": {
+    "ds_input_gateway": {
+      "type": "ds.search",
+      "name": "ds_input_gateway",
+      "options": {
+        "query": "| tstats count where `aviatrix_index` (sourcetype=\"aviatrix:ids\" OR sourcetype=\"aviatrix:firewall:l7\") by host\n| sort - count | head 300\n| eval label=host, value=host | fields label value",
+        "queryParameters": {
+          "earliest": "$time.earliest$",
+          "latest": "$time.latest$"
+        }
+      }
+    },
+    "ds_threat_time": {
+      "type": "ds.search",
+      "name": "ds_threat_time",
+      "options": {
+        "query": "`aviatrix_threats` host=$gateway$\n| `aviatrix_threat_fields`\n| search severity_id=$severity$ engine=$engine|s$ signature=$signature|s$ src=$src_ip$ dest=$dest_ip$ (src=$asset$ OR dest=$asset$)\n| bin _time bins=100\n| stats count by _time sev_label threat_outcome"
+      }
+    },
+    "ds_threat_agg": {
+      "type": "ds.search",
+      "name": "ds_threat_agg",
+      "options": {
+        "query": "`aviatrix_threats` host=$gateway$\n| `aviatrix_threat_fields`\n| search severity_id=$severity$ engine=$engine|s$ signature=$signature|s$ src=$src_ip$ dest=$dest_ip$ (src=$asset$ OR dest=$asset$)\n| stats count min(_time) as first max(_time) as last values(category) as category values(tactic) as tactic values(mitre_technique) as technique values(domain) as domain by signature sid severity_id sev_label engine threat_outcome internal_host peer host"
+      }
+    },
+    "ds_4": {
+      "type": "ds.chain",
+      "name": "ds_4",
+      "options": {
+        "extend": "ds_threat_time",
+        "query": "| timechart sum(count) as value\n| fillnull value=0 value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_5": {
+      "type": "ds.chain",
+      "name": "ds_5",
+      "options": {
+        "extend": "ds_threat_time",
+        "query": "| where sev_label=\"Critical\" OR sev_label=\"High\"\n| timechart sum(count) as value\n| fillnull value=0 value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_6": {
+      "type": "ds.chain",
+      "name": "ds_6",
+      "options": {
+        "extend": "ds_threat_time",
+        "query": "| where threat_outcome=\"Blocked\"\n| timechart sum(count) as value\n| fillnull value=0 value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_7": {
+      "type": "ds.chain",
+      "name": "ds_7",
+      "options": {
+        "extend": "ds_threat_agg",
+        "query": "| stats dc(signature) as value"
+      }
+    },
+    "ds_8": {
+      "type": "ds.chain",
+      "name": "ds_8",
+      "options": {
+        "extend": "ds_threat_agg",
+        "query": "| stats dc(internal_host) as value"
+      }
+    },
+    "ds_9": {
+      "type": "ds.chain",
+      "name": "ds_9",
+      "options": {
+        "extend": "ds_threat_agg",
+        "query": "| where NOT `aviatrix_private_ip(peer)` | stats dc(peer) as value"
+      }
+    },
+    "ds_16": {
+      "type": "ds.chain",
+      "name": "ds_16",
+      "options": {
+        "extend": "ds_threat_time",
+        "query": "| timechart sum(count) by sev_label"
+      }
+    },
+    "ds_17": {
+      "type": "ds.chain",
+      "name": "ds_17",
+      "options": {
+        "extend": "ds_threat_agg",
+        "query": "| mvexpand tactic\n| stats sum(count) as Alerts by tactic\n| sort - Alerts"
+      }
+    },
+    "ds_21": {
+      "type": "ds.chain",
+      "name": "ds_21",
+      "options": {
+        "extend": "ds_threat_agg",
+        "query": "| stats sum(count) as Alerts dc(internal_host) as Hosts dc(peer) as Peers values(category) as category values(engine) as Engine values(threat_outcome) as outcome min(first) as first max(last) as last by signature sid severity_id sev_label\n| eval Outcome=mvjoin(outcome, \" / \"), Category=mvindex(category, 0), First=strftime(first, \"%Y-%m-%d %H:%M\"), Last=strftime(last, \"%Y-%m-%d %H:%M\")\n| sort severity_id - Alerts\n| rename sev_label as Severity, signature as Signature, sid as SID\n| table Severity Signature SID Category Engine Outcome Alerts Hosts Peers First Last"
+      }
+    },
+    "ds_24": {
+      "type": "ds.chain",
+      "name": "ds_24",
+      "options": {
+        "extend": "ds_threat_agg",
+        "query": "| stats sum(count) as Alerts min(severity_id) as sev dc(signature) as Signatures values(signature) as sigs dc(peer) as Peers max(last) as last by internal_host\n| eval Severity=`aviatrix_severity_label(sev)`, \"Top signature\"=mvindex(sigs, 0), \"Last alert\"=strftime(last, \"%Y-%m-%d %H:%M\")\n| sort sev - Alerts\n| rename internal_host as Host\n| table Host Severity Alerts Signatures Peers \"Top signature\" \"Last alert\""
+      }
+    },
+    "ds_25": {
+      "type": "ds.chain",
+      "name": "ds_25",
+      "options": {
+        "extend": "ds_threat_agg",
+        "query": "| where NOT `aviatrix_private_ip(peer)`\n| stats sum(count) as Alerts min(severity_id) as sev dc(signature) as Signatures dc(internal_host) as Hosts values(domain) as dom by peer\n| iplocation peer\n| eval Severity=`aviatrix_severity_label(sev)`, Location=coalesce(nullif(mvjoin(mvappend(nullif(City, \"\"), nullif(Country, \"\")), \", \"), \"\"), \"-\"), Domain=coalesce(mvindex(dom, 0), \"-\")\n| sort sev - Alerts\n| rename peer as Peer\n| table Peer Domain Location Severity Alerts Signatures Hosts"
+      }
+    },
+    "ds_threat_events": {
+      "type": "ds.search",
+      "name": "ds_threat_events",
+      "options": {
+        "query": "`aviatrix_threats` host=$gateway$\n| `aviatrix_threat_fields`\n| search severity_id=$severity$ engine=$engine|s$ signature=$signature|s$ src=$src_ip$ dest=$dest_ip$ (src=$asset$ OR dest=$asset$)\n| head 500\n| eval Time=strftime(_time, \"%Y-%m-%d %H:%M:%S\"), Source=src.coalesce(\":\".src_port, \"\"), Destination=dest.coalesce(\":\".coalesce(dest_port, dst_port), \"\"), App=coalesce(app, app_proto, transport, \"-\"), Context=coalesce(http_hostname.coalesce(http_url, \"\"), tls_sni, sni_hostname, \"-\")\n| rename sev_label as Severity, signature as Signature, engine as Engine, threat_outcome as Outcome, host as Gateway, tactic as Tactic\n| table Time Severity Signature Engine Outcome Source Destination App Context Tactic Gateway"
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "options": {
+      "width": 1440,
+      "height": 1886
+    },
+    "structure": [
+      {
+        "item": "viz_10",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_11",
+        "type": "block",
+        "position": {
+          "x": 240,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_12",
+        "type": "block",
+        "position": {
+          "x": 480,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_13",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_14",
+        "type": "block",
+        "position": {
+          "x": 960,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_15",
+        "type": "block",
+        "position": {
+          "x": 1200,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_18",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 150,
+          "w": 960,
+          "h": 290
+        }
+      },
+      {
+        "item": "viz_19",
+        "type": "block",
+        "position": {
+          "x": 960,
+          "y": 150,
+          "w": 480,
+          "h": 290
+        }
+      },
+      {
+        "item": "viz_section_20",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 440,
+          "w": 1440,
+          "h": 44
+        }
+      },
+      {
+        "item": "viz_22",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 484,
+          "w": 1440,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_section_23",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 884,
+          "w": 1440,
+          "h": 76
+        }
+      },
+      {
+        "item": "viz_26",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 960,
+          "w": 720,
+          "h": 380
+        }
+      },
+      {
+        "item": "viz_27",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 960,
+          "w": 720,
+          "h": 380
+        }
+      },
+      {
+        "item": "viz_section_28",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1340,
+          "w": 1440,
+          "h": 76
+        }
+      },
+      {
+        "item": "viz_30",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1416,
+          "w": 1440,
+          "h": 470
+        }
+      }
+    ],
+    "globalInputs": [
+      "input_time",
+      "input_gateway",
+      "input_severity",
+      "input_engine",
+      "input_signature",
+      "input_asset",
+      "input_src_ip",
+      "input_dest_ip"
+    ]
+  }
+}
+  ]]></definition>
+  <meta type="hiddenElements"><![CDATA[
+{"hideEdit": false, "hideOpenInSearch": false, "hideExport": false}
+  ]]></meta>
+</dashboard>

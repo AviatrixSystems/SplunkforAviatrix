@@ -13,3 +13,6 @@ export = system
 
 [savedsearches]
 export = system
+
+[datamodels]
+export = system

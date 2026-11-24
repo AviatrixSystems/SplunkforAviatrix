@@ -1,0 +1,334 @@
+{
+  "modelName": "Aviatrix_Traffic",
+  "displayName": "Aviatrix Traffic",
+  "description": "Aviatrix Distributed Cloud Firewall flows (L4, L7, FQDN), one event per connection.",
+  "editable": true,
+  "objectNameList": [
+    "Flows"
+  ],
+  "objects": [
+    {
+      "objectName": "Flows",
+      "displayName": "Flows",
+      "parentName": "BaseEvent",
+      "comment": "",
+      "lineage": "Flows",
+      "constraints": [
+        {
+          "search": "`aviatrix_flows`",
+          "owner": "Flows"
+        }
+      ],
+      "fields": [
+        {
+          "fieldName": "_time",
+          "owner": "BaseEvent",
+          "type": "timestamp",
+          "fieldSearch": "",
+          "required": false,
+          "multivalue": false,
+          "hidden": false,
+          "editable": true,
+          "displayName": "_time",
+          "comment": ""
+        },
+        {
+          "fieldName": "host",
+          "owner": "BaseEvent",
+          "type": "string",
+          "fieldSearch": "",
+          "required": false,
+          "multivalue": false,
+          "hidden": false,
+          "editable": true,
+          "displayName": "host",
+          "comment": ""
+        },
+        {
+          "fieldName": "source",
+          "owner": "BaseEvent",
+          "type": "string",
+          "fieldSearch": "",
+          "required": false,
+          "multivalue": false,
+          "hidden": false,
+          "editable": true,
+          "displayName": "source",
+          "comment": ""
+        },
+        {
+          "fieldName": "sourcetype",
+          "owner": "BaseEvent",
+          "type": "string",
+          "fieldSearch": "",
+          "required": false,
+          "multivalue": false,
+          "hidden": false,
+          "editable": true,
+          "displayName": "sourcetype",
+          "comment": ""
+        },
+        {
+          "fieldName": "src",
+          "owner": "Flows",
+          "type": "string",
+          "fieldSearch": "",
+          "required": false,
+          "multivalue": false,
+          "hidden": false,
+          "editable": true,
+          "displayName": "src",
+          "comment": ""
+        },
+        {
+          "fieldName": "dest",
+          "owner": "Flows",
+          "type": "string",
+          "fieldSearch": "",
+          "required": false,
+          "multivalue": false,
+          "hidden": false,
+          "editable": true,
+          "displayName": "dest",
+          "comment": ""
+        },
+        {
+          "fieldName": "transport",
+          "owner": "Flows",
+          "type": "string",
+          "fieldSearch": "",
+          "required": false,
+          "multivalue": false,
+          "hidden": false,
+          "editable": true,
+          "displayName": "transport",
+          "comment": ""
+        },
+        {
+          "fieldName": "enforced",
+          "owner": "Flows",
+          "type": "string",
+          "fieldSearch": "",
+          "required": false,
+          "multivalue": false,
+          "hidden": false,
+          "editable": true,
+          "displayName": "enforced",
+          "comment": ""
+        },
+        {
+          "fieldName": "dest_port",
+          "owner": "Flows",
+          "type": "number",
+          "fieldSearch": "",
+          "required": false,
+          "multivalue": false,
+          "hidden": false,
+          "editable": true,
+          "displayName": "dest_port",
+          "comment": ""
+        }
+      ],
+      "calculations": [
+        {
+          "calculationID": "log_type",
+          "calculationType": "Eval",
+          "owner": "Flows",
+          "editable": true,
+          "comment": "l4 | l7 | fqdn",
+          "expression": "case(sourcetype==\"aviatrix:firewall:l4\", \"l4\", sourcetype==\"aviatrix:firewall:l7\", \"l7\", 1=1, \"fqdn\")",
+          "outputFields": [
+            {
+              "fieldName": "log_type",
+              "owner": "Flows",
+              "type": "string",
+              "fieldSearch": "",
+              "required": false,
+              "multivalue": false,
+              "hidden": false,
+              "editable": true,
+              "displayName": "log_type",
+              "comment": ""
+            }
+          ]
+        },
+        {
+          "calculationID": "outcome",
+          "calculationType": "Eval",
+          "owner": "Flows",
+          "editable": true,
+          "comment": "Allowed | Would block (deny rule in monitor mode) | Blocked; same as the aviatrix_outcome macro",
+          "expression": "case(sourcetype==\"aviatrix:firewall:fqdn\", if(action==\"blocked\", \"Blocked\", \"Allowed\"), match(lower(coalesce(vendor_action, action)), \"^(deny|drop|block|blocked|reject)$\") AND lower(enforced)==\"false\", \"Would block\", match(lower(coalesce(vendor_action, action)), \"^(deny|drop|block|blocked|reject)$\"), \"Blocked\", 1=1, \"Allowed\")",
+          "outputFields": [
+            {
+              "fieldName": "outcome",
+              "owner": "Flows",
+              "type": "string",
+              "fieldSearch": "",
+              "required": false,
+              "multivalue": false,
+              "hidden": false,
+              "editable": true,
+              "displayName": "outcome",
+              "comment": ""
+            }
+          ]
+        },
+        {
+          "calculationID": "outcome_key",
+          "calculationType": "Eval",
+          "owner": "Flows",
+          "editable": true,
+          "comment": "allowed | monitor | blocked (dashboard token values)",
+          "expression": "case(sourcetype==\"aviatrix:firewall:fqdn\", if(action==\"blocked\", \"blocked\", \"allowed\"), match(lower(coalesce(vendor_action, action)), \"^(deny|drop|block|blocked|reject)$\") AND lower(enforced)==\"false\", \"monitor\", match(lower(coalesce(vendor_action, action)), \"^(deny|drop|block|blocked|reject)$\"), \"blocked\", 1=1, \"allowed\")",
+          "outputFields": [
+            {
+              "fieldName": "outcome_key",
+              "owner": "Flows",
+              "type": "string",
+              "fieldSearch": "",
+              "required": false,
+              "multivalue": false,
+              "hidden": false,
+              "editable": true,
+              "displayName": "outcome_key",
+              "comment": ""
+            }
+          ]
+        },
+        {
+          "calculationID": "direction",
+          "calculationType": "Eval",
+          "owner": "Flows",
+          "editable": true,
+          "comment": "East-west | Egress | Ingress",
+          "expression": "case(match(src, \"^10\\.|^172\\.(1[6-9]|2[0-9]|3[0-1])\\.|^192\\.168\\.|^100\\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\\.\") AND match(dest, \"^10\\.|^172\\.(1[6-9]|2[0-9]|3[0-1])\\.|^192\\.168\\.|^100\\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\\.\"), \"East-west\", match(src, \"^10\\.|^172\\.(1[6-9]|2[0-9]|3[0-1])\\.|^192\\.168\\.|^100\\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\\.\"), \"Egress\", 1=1, \"Ingress\")",
+          "outputFields": [
+            {
+              "fieldName": "direction",
+              "owner": "Flows",
+              "type": "string",
+              "fieldSearch": "",
+              "required": false,
+              "multivalue": false,
+              "hidden": false,
+              "editable": true,
+              "displayName": "direction",
+              "comment": ""
+            }
+          ]
+        },
+        {
+          "calculationID": "domain",
+          "calculationType": "Eval",
+          "owner": "Flows",
+          "editable": true,
+          "comment": "TLS SNI (L7, destination IP when there is no SNI) or FQDN hostname; null for L4",
+          "expression": "coalesce(sni_hostname, hostname, if(sourcetype==\"aviatrix:firewall:l7\", dest, null()))",
+          "outputFields": [
+            {
+              "fieldName": "domain",
+              "owner": "Flows",
+              "type": "string",
+              "fieldSearch": "",
+              "required": false,
+              "multivalue": false,
+              "hidden": false,
+              "editable": true,
+              "displayName": "domain",
+              "comment": ""
+            }
+          ]
+        },
+        {
+          "calculationID": "port",
+          "calculationType": "Eval",
+          "owner": "Flows",
+          "editable": true,
+          "comment": "Destination port as a string; none for FQDN events, so port=* matches every flow",
+          "expression": "if(match(tostring(coalesce(dest_port, dst_port)), \"^\\d+$\"), tostring(coalesce(dest_port, dst_port)), \"none\")",
+          "outputFields": [
+            {
+              "fieldName": "port",
+              "owner": "Flows",
+              "type": "string",
+              "fieldSearch": "",
+              "required": false,
+              "multivalue": false,
+              "hidden": false,
+              "editable": true,
+              "displayName": "port",
+              "comment": ""
+            }
+          ]
+        },
+        {
+          "calculationID": "rule",
+          "calculationType": "Eval",
+          "owner": "Flows",
+          "editable": true,
+          "comment": "Policy rule UUID",
+          "expression": "coalesce(decided_by, uuid, if(match(rule, \"^%\\{\"), null(), rule))",
+          "outputFields": [
+            {
+              "fieldName": "rule",
+              "owner": "Flows",
+              "type": "string",
+              "fieldSearch": "",
+              "required": false,
+              "multivalue": false,
+              "hidden": false,
+              "editable": true,
+              "displayName": "rule",
+              "comment": ""
+            }
+          ]
+        },
+        {
+          "calculationID": "flow_role",
+          "calculationType": "Eval",
+          "owner": "Flows",
+          "editable": true,
+          "comment": "reply = from a service port to a client ephemeral port (return traffic); request otherwise. Scan and sweep detection counts requests only, so busy servers do not look like scanners.",
+          "expression": "if(tonumber(src_port)<10000 AND tonumber(coalesce(dest_port, dst_port))>=32768, \"reply\", \"request\")",
+          "outputFields": [
+            {
+              "fieldName": "flow_role",
+              "owner": "Flows",
+              "type": "string",
+              "fieldSearch": "",
+              "required": false,
+              "multivalue": false,
+              "hidden": false,
+              "editable": true,
+              "displayName": "flow_role",
+              "comment": ""
+            }
+          ]
+        },
+        {
+          "calculationID": "proto",
+          "calculationType": "Eval",
+          "owner": "Flows",
+          "editable": true,
+          "comment": "TCP | UDP | ICMP",
+          "expression": "upper(coalesce(transport, proto, \"tcp\"))",
+          "outputFields": [
+            {
+              "fieldName": "proto",
+              "owner": "Flows",
+              "type": "string",
+              "fieldSearch": "",
+              "required": false,
+              "multivalue": false,
+              "hidden": false,
+              "editable": true,
+              "displayName": "proto",
+              "comment": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,337 +1,988 @@
-<form version="1.1" theme="dark">
+<dashboard version="2" theme="dark">
   <label>Traffic Analysis</label>
-  <description>Deep-dive into Aviatrix Cloud Firewall network traffic</description>
-
-  <init>
-    <set token="show_l4">true</set>
-  </init>
-
-  <fieldset submitButton="true" autoRun="true">
-    <input type="time" token="time" searchWhenChanged="true">
-      <label>Time Range</label>
-      <default>
-        <earliest>-4h@h</earliest>
-        <latest>now</latest>
-      </default>
-    </input>
-    <input type="dropdown" token="gateway" searchWhenChanged="true">
-      <label>Gateway</label>
-      <choice value="*">All Gateways</choice>
-      <default>*</default>
-      <fieldForLabel>gateway</fieldForLabel>
-      <fieldForValue>gateway</fieldForValue>
-      <search>
-        <query>`aviatrix_firewall` | stats count by host | rename host as gateway | sort gateway</query>
-        <earliest>$time.earliest$</earliest>
-        <latest>$time.latest$</latest>
-      </search>
-    </input>
-    <input type="text" token="src" searchWhenChanged="false">
-      <label>Source IP/CIDR</label>
-      <default>*</default>
-    </input>
-    <input type="text" token="dest" searchWhenChanged="false">
-      <label>Destination IP/CIDR</label>
-      <default>*</default>
-    </input>
-    <input type="dropdown" token="action" searchWhenChanged="true">
-      <label>Action</label>
-      <choice value="*">All</choice>
-      <choice value="allowed">Allowed</choice>
-      <choice value="blocked">Blocked</choice>
-      <default>*</default>
-    </input>
-    <input type="dropdown" token="proto" searchWhenChanged="true">
-      <label>Protocol</label>
-      <choice value="*">All</choice>
-      <choice value="TCP">TCP</choice>
-      <choice value="UDP">UDP</choice>
-      <choice value="ICMP">ICMP</choice>
-      <default>*</default>
-    </input>
-    <input type="text" token="port" searchWhenChanged="false">
-      <label>Dest Port</label>
-      <default>*</default>
-    </input>
-  </fieldset>
-
-  <!-- Volume Row -->
-  <row>
-    <panel>
-      <title>Traffic Volume Over Time</title>
-      <chart>
-        <search>
-          <query>`aviatrix_l4` host=$gateway$ proto=$proto$
-| eval src_ip=coalesce(src_ip, src)
-| eval dst_ip=coalesce(dst_ip, dest)
-| search src_ip=$src$ dst_ip=$dest$ dst_port=$port$
-| eval act=`aviatrix_traffic_action`
-| eval action_type=case(act=="allowed", "Allowed", act=="blocked", "Blocked", 1=1, "Other")
-| where ("$action$"="*" OR act="$action$")
-| eval byte_count=coalesce(tonumber(session_byte_cnt), tonumber(bytes), 0)
-| timechart sum(byte_count) as bytes by action_type</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="charting.chart">area</option>
-        <option name="charting.chart.stackMode">stacked</option>
-        <option name="charting.drilldown">none</option>
-        <option name="charting.legend.placement">bottom</option>
-        <option name="charting.fieldColors">{"Allowed": 0x53A051, "Blocked": 0xDC4E41}</option>
-        <option name="charting.axisTitleY.text">Bytes</option>
-        <option name="height">200</option>
-      </chart>
-    </panel>
-    <panel>
-      <title>Sessions Over Time</title>
-      <chart>
-        <search>
-          <query>`aviatrix_l4` host=$gateway$ proto=$proto$
-| eval src_ip=coalesce(src_ip, src)
-| eval dst_ip=coalesce(dst_ip, dest)
-| search src_ip=$src$ dst_ip=$dest$ dst_port=$port$
-| eval act=`aviatrix_traffic_action`
-| eval action_type=case(act=="allowed", "Allowed", act=="blocked", "Blocked", 1=1, "Other")
-| where ("$action$"="*" OR act="$action$")
-| timechart count by action_type</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="charting.chart">line</option>
-        <option name="charting.drilldown">none</option>
-        <option name="charting.legend.placement">bottom</option>
-        <option name="charting.fieldColors">{"Allowed": 0x53A051, "Blocked": 0xDC4E41}</option>
-        <option name="charting.axisTitleY.text">Sessions</option>
-        <option name="height">200</option>
-      </chart>
-    </panel>
-  </row>
-
-  <!-- Sankey and Top Talkers -->
-  <row>
-    <panel>
-      <title>Traffic Flow (Source -> Destination)</title>
-      <table>
-        <search>
-          <query>`aviatrix_l4` host=$gateway$ proto=$proto$
-| eval src_ip=coalesce(src_ip, src)
-| eval dst_ip=coalesce(dst_ip, dest)
-| search src_ip=$src$ dst_ip=$dest$ dst_port=$port$
-| eval act=`aviatrix_traffic_action`
-| eval action_type=case(act=="allowed", "Allowed", act=="blocked", "Blocked", 1=1, "Other")
-| where ("$action$"="*" OR act="$action$")
-| stats count as Sessions by src_ip, dst_ip, dst_port, proto, action_type
-| sort - Sessions
-| head 50
-| rename src_ip as "Source", dst_ip as "Destination", dst_port as "Port", proto as "Protocol", action_type as "Action"</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="count">20</option>
-        <option name="drilldown">row</option>
-        <option name="wrap">false</option>
-        <format type="number" field="Sessions">
-          <option name="precision">0</option>
-        </format>
-        <format type="color" field="Action">
-          <colorPalette type="map">{"Allowed": 0x53A051, "Blocked": 0xDC4E41}</colorPalette>
-        </format>
-        <format type="color" field="Sessions">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" midValue="50"></scale>
-        </format>
-        <drilldown>
-          <set token="form.src">$row.Source$</set>
-          <set token="src">$row.Source$</set>
-          <set token="form.dest">$row.Destination$</set>
-          <set token="dest">$row.Destination$</set>
-        </drilldown>
-      </table>
-    </panel>
-  </row>
-
-  <!-- Top Sources and Destinations -->
-  <row>
-    <panel>
-      <title>Top Source IPs</title>
-      <table>
-        <search>
-          <query>`aviatrix_l4` host=$gateway$ proto=$proto$
-| eval src_ip=coalesce(src_ip, src)
-| eval dst_ip=coalesce(dst_ip, dest)
-| search src_ip=$src$ dst_ip=$dest$ dst_port=$port$
-| eval act=`aviatrix_traffic_action`
-| eval action_type=case(act=="allowed", "Allowed", act=="blocked", "Blocked", 1=1, "Other")
-| where ("$action$"="*" OR act="$action$")
-| eval byte_count=coalesce(tonumber(session_byte_cnt), tonumber(bytes), tonumber(bytes_sent), 0)
-| stats count as Sessions, sum(byte_count) as Bytes, dc(dst_ip) as "Unique Dests" by src_ip
-| eval Bytes=round(Bytes/1024/1024, 2)
-| sort - Sessions
-| head 20
-| rename src_ip as "Source IP", Bytes as "MB Transferred"</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="count">10</option>
-        <option name="drilldown">row</option>
-        <format type="number" field="Sessions">
-          <option name="precision">0</option>
-        </format>
-        <drilldown>
-          <set token="form.src">$row.Source IP$</set>
-          <set token="src">$row.Source IP$</set>
-        </drilldown>
-      </table>
-    </panel>
-    <panel>
-      <title>Top Destination IPs</title>
-      <table>
-        <search>
-          <query>`aviatrix_l4` host=$gateway$ proto=$proto$
-| eval src_ip=coalesce(src_ip, src)
-| eval dst_ip=coalesce(dst_ip, dest)
-| search src_ip=$src$ dst_ip=$dest$ dst_port=$port$
-| eval act=`aviatrix_traffic_action`
-| eval action_type=case(act=="allowed", "Allowed", act=="blocked", "Blocked", 1=1, "Other")
-| where ("$action$"="*" OR act="$action$")
-| eval byte_count=coalesce(tonumber(session_byte_cnt), tonumber(bytes), tonumber(bytes_received), 0)
-| stats count as Sessions, sum(byte_count) as Bytes, dc(src_ip) as "Unique Sources" by dst_ip
-| eval Bytes=round(Bytes/1024/1024, 2)
-| sort - Sessions
-| head 20
-| rename dst_ip as "Destination IP", Bytes as "MB Transferred"</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="count">10</option>
-        <option name="drilldown">row</option>
-        <format type="number" field="Sessions">
-          <option name="precision">0</option>
-        </format>
-        <drilldown>
-          <set token="form.dest">$row.Destination IP$</set>
-          <set token="dest">$row.Destination IP$</set>
-        </drilldown>
-      </table>
-    </panel>
-    <panel>
-      <title>Port Distribution</title>
-      <chart>
-        <search>
-          <query>`aviatrix_l4` host=$gateway$ proto=$proto$
-| eval src_ip=coalesce(src_ip, src)
-| eval dst_ip=coalesce(dst_ip, dest)
-| search src_ip=$src$ dst_ip=$dest$ dst_port=$port$
-| eval act=`aviatrix_traffic_action`
-| eval action_type=case(act=="allowed", "Allowed", act=="blocked", "Blocked", 1=1, "Other")
-| where ("$action$"="*" OR act="$action$")
-| stats count by dst_port
-| sort - count
-| head 15</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="charting.chart">pie</option>
-        <option name="charting.drilldown">all</option>
-        <option name="height">300</option>
-        <drilldown>
-          <set token="form.port">$click.value$</set>
-          <set token="port">$click.value$</set>
-        </drilldown>
-      </chart>
-    </panel>
-  </row>
-
-  <!-- Detailed Events -->
-  <row>
-    <panel>
-      <title>Traffic Events</title>
-      <input type="dropdown" token="log_type" searchWhenChanged="true">
-        <label>Log Type</label>
-        <choice value="l4">L4 Firewall</choice>
-        <choice value="l7">L7 Firewall</choice>
-        <choice value="fqdn">FQDN</choice>
-        <default>l4</default>
-        <change>
-          <condition value="l4">
-            <set token="show_l4">true</set>
-            <unset token="show_l7"></unset>
-            <unset token="show_fqdn"></unset>
-          </condition>
-          <condition value="l7">
-            <unset token="show_l4"></unset>
-            <set token="show_l7">true</set>
-            <unset token="show_fqdn"></unset>
-          </condition>
-          <condition value="fqdn">
-            <unset token="show_l4"></unset>
-            <unset token="show_l7"></unset>
-            <set token="show_fqdn">true</set>
-          </condition>
-        </change>
-      </input>
-      <table depends="$show_l4$">
-        <search>
-          <query>`aviatrix_l4` host=$gateway$ proto=$proto$
-| eval src=src_ip, dest=dst_ip, port=dst_port
-| search src=$src$ dest=$dest$ port=$port$
-| eval act=`aviatrix_traffic_action`
-| where ("$action$"="*" OR act="$action$")
-| eval action_display=case(act=="allowed", "Allowed", act=="blocked", "Blocked", 1=1, act), bytes_display=tonumber(session_byte_cnt)
-| table _time, host, src, dest, port, proto, action_display, bytes_display, uuid
-| rename host as Gateway, action_display as Action, bytes_display as Bytes, uuid as Policy
-| head 500</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="count">20</option>
-        <option name="drilldown">row</option>
-        <option name="wrap">false</option>
-        <format type="color" field="Action">
-          <colorPalette type="map">{"Allowed": 0x53A051, "Blocked": 0xDC4E41}</colorPalette>
-        </format>
-      </table>
-      <table depends="$show_l7$">
-        <search>
-          <query>`aviatrix_l7` host=$gateway$ proto=$proto$
-| eval src=src, dest=dest, port=dest_port
-| search src=$src$ dest=$dest$ port=$port$
-| eval act=`aviatrix_traffic_action`
-| where ("$action$"="*" OR act="$action$")
-| eval action_display=case(act=="allowed", "Allowed", act=="blocked", "Blocked", 1=1, act)
-| table _time, host, src, dest, port, proto, action_display, sni_hostname, decided_by
-| rename host as Gateway, action_display as Action, sni_hostname as Domain, decided_by as Policy
-| head 500</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="count">20</option>
-        <option name="drilldown">row</option>
-        <option name="wrap">false</option>
-        <format type="color" field="Action">
-          <colorPalette type="map">{"Allowed": 0x53A051, "Blocked": 0xDC4E41}</colorPalette>
-        </format>
-      </table>
-      <table depends="$show_fqdn$">
-        <search>
-          <query>`aviatrix_fqdn` gateway=$gateway$
-| eval src=sip, dest=dip
-| search src=$src$ dest=$dest$
-| eval action_display=if(state="MATCHED", "Allowed", "Blocked")
-| where ("$action$"="*" OR (state="MATCHED" AND "$action$"="allowed") OR (state!="MATCHED" AND "$action$"="blocked"))
-| table _time, gateway, src, dest, hostname, rule, action_display
-| rename gateway as Gateway, action_display as Action, hostname as Domain
-| head 500</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="count">20</option>
-        <option name="drilldown">row</option>
-        <option name="wrap">false</option>
-        <format type="color" field="Action">
-          <colorPalette type="map">{"Allowed": 0x53A051, "Blocked": 0xDC4E41}</colorPalette>
-        </format>
-      </table>
-    </panel>
-  </row>
-</form>
+  <description>Hunt across L4 micro-segmentation, L7 and FQDN flows: who talks to what, on which services, and what policy did about it.</description>
+  <definition><![CDATA[
+{
+  "title": "Traffic Analysis",
+  "description": "Hunt across L4 micro-segmentation, L7 and FQDN flows: who talks to what, on which services, and what policy did about it.",
+  "inputs": {
+    "input_time": {
+      "type": "input.timerange",
+      "title": "Time range",
+      "options": {
+        "token": "time",
+        "defaultValue": "-24h@h,now"
+      }
+    },
+    "input_gateway": {
+      "type": "input.dropdown",
+      "title": "Gateway",
+      "dataSources": {
+        "primary": "ds_input_gateway"
+      },
+      "options": {
+        "token": "gateway",
+        "defaultValue": "*",
+        "items": ">frame(label, value) | prepend(formattedStatics) | objects()"
+      },
+      "encoding": {
+        "label": "primary[0]",
+        "value": "primary[1]"
+      },
+      "context": {
+        "formattedConfig": {
+          "number": {
+            "prefix": ""
+          }
+        },
+        "formattedStatics": ">statics | formatByType(formattedConfig)",
+        "statics": [
+          [
+            "All gateways"
+          ],
+          [
+            "*"
+          ]
+        ],
+        "label": ">primary | seriesByName(\"label\") | renameSeries(\"label\") | formatByType(formattedConfig)",
+        "value": ">primary | seriesByName(\"value\") | renameSeries(\"value\") | formatByType(formattedConfig)"
+      }
+    },
+    "input_log_type": {
+      "type": "input.dropdown",
+      "title": "Log type",
+      "options": {
+        "token": "log_type",
+        "defaultValue": "*",
+        "items": [
+          {
+            "label": "All",
+            "value": "*"
+          },
+          {
+            "label": "L4 micro-segmentation",
+            "value": "l4"
+          },
+          {
+            "label": "L7 / TLS",
+            "value": "l7"
+          },
+          {
+            "label": "FQDN",
+            "value": "fqdn"
+          }
+        ]
+      }
+    },
+    "input_action": {
+      "type": "input.dropdown",
+      "title": "Outcome",
+      "options": {
+        "token": "action",
+        "defaultValue": "*",
+        "items": [
+          {
+            "label": "All",
+            "value": "*"
+          },
+          {
+            "label": "Allowed",
+            "value": "allowed"
+          },
+          {
+            "label": "Would block (monitor)",
+            "value": "monitor"
+          },
+          {
+            "label": "Blocked",
+            "value": "blocked"
+          }
+        ]
+      }
+    },
+    "input_direction": {
+      "type": "input.dropdown",
+      "title": "Direction",
+      "options": {
+        "token": "direction",
+        "defaultValue": "*",
+        "items": [
+          {
+            "label": "All",
+            "value": "*"
+          },
+          {
+            "label": "East-west",
+            "value": "East-west"
+          },
+          {
+            "label": "Egress",
+            "value": "Egress"
+          },
+          {
+            "label": "Ingress",
+            "value": "Ingress"
+          }
+        ]
+      }
+    },
+    "input_proto": {
+      "type": "input.dropdown",
+      "title": "Protocol",
+      "options": {
+        "token": "proto",
+        "defaultValue": "*",
+        "items": [
+          {
+            "label": "All",
+            "value": "*"
+          },
+          {
+            "label": "TCP",
+            "value": "TCP"
+          },
+          {
+            "label": "UDP",
+            "value": "UDP"
+          },
+          {
+            "label": "ICMP",
+            "value": "ICMP"
+          }
+        ]
+      }
+    },
+    "input_src": {
+      "type": "input.text",
+      "title": "Source IP / CIDR",
+      "options": {
+        "token": "src",
+        "defaultValue": "*"
+      }
+    },
+    "input_dest": {
+      "type": "input.text",
+      "title": "Destination IP / CIDR",
+      "options": {
+        "token": "dest",
+        "defaultValue": "*"
+      }
+    },
+    "input_port": {
+      "type": "input.text",
+      "title": "Dest port",
+      "options": {
+        "token": "port",
+        "defaultValue": "*"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$time.earliest$",
+            "latest": "$time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "visualizations": {
+    "viz_11": {
+      "type": "splunk.singlevalue",
+      "title": "Flows",
+      "dataSources": {
+        "primary": "ds_5"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#3987e5",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      }
+    },
+    "viz_12": {
+      "type": "splunk.singlevalue",
+      "title": "Blocked",
+      "dataSources": {
+        "primary": "ds_6"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#d03b3b",
+        "majorColor": "> majorValue | rangeValue(alertColors)",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      },
+      "context": {
+        "alertColors": [
+          {
+            "to": 1,
+            "value": "#f0efec"
+          },
+          {
+            "from": 1,
+            "value": "#d03b3b"
+          }
+        ]
+      }
+    },
+    "viz_13": {
+      "type": "splunk.singlevalue",
+      "title": "Would block",
+      "dataSources": {
+        "primary": "ds_7"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#fab219",
+        "majorColor": "> majorValue | rangeValue(alertColors)",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      },
+      "context": {
+        "alertColors": [
+          {
+            "to": 1,
+            "value": "#f0efec"
+          },
+          {
+            "from": 1,
+            "value": "#fab219"
+          }
+        ]
+      },
+      "description": "Monitor-mode deny matches"
+    },
+    "viz_14": {
+      "type": "splunk.singlevalue",
+      "title": "Sources",
+      "dataSources": {
+        "primary": "ds_8"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"value\") | lastPoint()",
+        "trendDisplay": "off",
+        "sparklineDisplay": "off",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      }
+    },
+    "viz_15": {
+      "type": "splunk.singlevalue",
+      "title": "Destinations",
+      "dataSources": {
+        "primary": "ds_9"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"value\") | lastPoint()",
+        "trendDisplay": "off",
+        "sparklineDisplay": "off",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      }
+    },
+    "viz_16": {
+      "type": "splunk.singlevalue",
+      "title": "Services (ports)",
+      "dataSources": {
+        "primary": "ds_10"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"value\") | lastPoint()",
+        "trendDisplay": "off",
+        "sparklineDisplay": "off",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      }
+    },
+    "viz_17": {
+      "type": "splunk.area",
+      "title": "Flows by outcome",
+      "dataSources": {
+        "primary": "ds_flow_time"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "legendDisplay": "bottom",
+        "xAxisTitleVisibility": "hide",
+        "seriesColors": [
+          "#3987e5",
+          "#d95926",
+          "#199e70",
+          "#c98500",
+          "#d55181",
+          "#0ca30c",
+          "#9085e9",
+          "#e66767"
+        ],
+        "yAxisTitleText": "flows",
+        "seriesColorsByField": {
+          "Allowed": "#3987e5",
+          "Would block": "#fab219",
+          "Blocked": "#d03b3b"
+        },
+        "stackMode": "stacked",
+        "areaFillOpacity": 0.55
+      }
+    },
+    "viz_18": {
+      "type": "splunk.column",
+      "title": "Flows by direction",
+      "dataSources": {
+        "primary": "ds_flow_dir"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "legendDisplay": "bottom",
+        "xAxisTitleVisibility": "hide",
+        "seriesColors": [
+          "#3987e5",
+          "#d95926",
+          "#199e70",
+          "#c98500",
+          "#d55181",
+          "#0ca30c",
+          "#9085e9",
+          "#e66767"
+        ],
+        "yAxisTitleVisibility": "hide",
+        "seriesColorsByField": {
+          "East-west": "#199e70",
+          "Egress": "#3987e5",
+          "Ingress": "#d55181"
+        },
+        "stackMode": "stacked"
+      }
+    },
+    "viz_section_19": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "#### WHO TALKS TO WHAT",
+        "fontColor": "#c3c2b7",
+        "fontSize": "custom",
+        "customFontSize": 13,
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_22": {
+      "type": "splunk.sankey",
+      "title": "Traffic flow: source network to service to outcome",
+      "dataSources": {
+        "primary": "ds_20"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "colorMode": "categorical",
+        "linkOpacity": 0.45
+      },
+      "description": "Top 8 source networks (/24) and services; the rest are grouped"
+    },
+    "viz_23": {
+      "type": "splunk.bar",
+      "title": "Top services by outcome",
+      "dataSources": {
+        "primary": "ds_21"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "legendDisplay": "bottom",
+        "xAxisTitleVisibility": "hide",
+        "seriesColors": [
+          "#3987e5",
+          "#d95926",
+          "#199e70",
+          "#c98500",
+          "#d55181",
+          "#0ca30c",
+          "#9085e9",
+          "#e66767"
+        ],
+        "yAxisTitleVisibility": "hide",
+        "seriesColorsByField": {
+          "Allowed": "#3987e5",
+          "Would block": "#fab219",
+          "Blocked": "#d03b3b"
+        },
+        "stackMode": "stacked"
+      }
+    },
+    "viz_26": {
+      "type": "splunk.table",
+      "title": "Top sources",
+      "dataSources": {
+        "primary": "ds_24"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 9,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small"
+      },
+      "description": "Click a row to filter the dashboard to that source",
+      "eventHandlers": [
+        {
+          "type": "drilldown.setToken",
+          "options": {
+            "tokens": [
+              {
+                "token": "src",
+                "key": "row.Source.value"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "viz_27": {
+      "type": "splunk.table",
+      "title": "Top destinations",
+      "dataSources": {
+        "primary": "ds_25"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 9,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small"
+      },
+      "description": "Click a row to filter the dashboard to that destination",
+      "eventHandlers": [
+        {
+          "type": "drilldown.setToken",
+          "options": {
+            "tokens": [
+              {
+                "token": "dest",
+                "key": "row.Destination.value"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "viz_section_28": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "#### RECONNAISSANCE\nSources that fanned out to 25+ service ports or hosts: scans, sweeps and misbehaving workloads. Only requests count: replies from a service port to client ephemeral ports are excluded, so busy servers do not look like scanners.",
+        "fontColor": "#c3c2b7",
+        "fontSize": "custom",
+        "customFontSize": 13,
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_30": {
+      "type": "splunk.table",
+      "title": "Scan and sweep suspects",
+      "dataSources": {
+        "primary": "ds_29"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 7,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small"
+      },
+      "eventHandlers": [
+        {
+          "type": "drilldown.setToken",
+          "options": {
+            "tokens": [
+              {
+                "token": "src",
+                "key": "row.Source.value"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "viz_section_31": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "#### FLOW RECORDS\nMost recent 500 matching flows. Click a row to open it in Search.",
+        "fontColor": "#c3c2b7",
+        "fontSize": "custom",
+        "customFontSize": 13,
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_33": {
+      "type": "splunk.table",
+      "title": "Flows",
+      "dataSources": {
+        "primary": "ds_flow_events"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 12,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small",
+        "columnFormat": {
+          "Outcome": {
+            "rowColors": "> table | seriesByName(\"Outcome\") | matchValue(colors0)"
+          }
+        }
+      },
+      "context": {
+        "colors0": [
+          {
+            "match": "Allowed",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Would block",
+            "value": "#fab219"
+          },
+          {
+            "match": "Blocked",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Critical",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "High",
+            "value": "#f4a27f"
+          },
+          {
+            "match": "Medium",
+            "value": "#fab219"
+          },
+          {
+            "match": "Low",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Info",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Healthy",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Warning",
+            "value": "#fab219"
+          },
+          {
+            "match": "Silent",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Up",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Down",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Detected",
+            "value": "#fab219"
+          },
+          {
+            "match": "success",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "failure",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "created",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "modified",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "deleted",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "read",
+            "value": "#898781"
+          },
+          {
+            "match": "active",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "disconnected",
+            "value": "#898781"
+          }
+        ]
+      },
+      "eventHandlers": [
+        {
+          "type": "drilldown.linkToSearch",
+          "options": {
+            "type": "auto",
+            "newTab": true
+          }
+        }
+      ]
+    }
+  },
+  "dataSources": {
+    "ds_input_gateway": {
+      "type": "ds.search",
+      "name": "ds_input_gateway",
+      "options": {
+        "query": "| tstats count where `aviatrix_index` (sourcetype=\"aviatrix:firewall:l4\" OR sourcetype=\"aviatrix:firewall:l7\" OR sourcetype=\"aviatrix:firewall:fqdn\") by host\n| sort - count | head 300\n| eval label=host, value=host | fields label value",
+        "queryParameters": {
+          "earliest": "$time.earliest$",
+          "latest": "$time.latest$"
+        }
+      }
+    },
+    "ds_flow_time": {
+      "type": "ds.search",
+      "name": "ds_flow_time",
+      "options": {
+        "query": "| tstats summariesonly=false prestats=t count from datamodel=Aviatrix_Traffic.Flows where host=$gateway$ Flows.src=$src$ Flows.dest=$dest$ Flows.port=$port$ Flows.log_type=$log_type$ Flows.proto=$proto$ Flows.outcome_key=$action$ Flows.direction=$direction$ by _time Flows.outcome\n| timechart count by Flows.outcome"
+      }
+    },
+    "ds_flow_dir": {
+      "type": "ds.search",
+      "name": "ds_flow_dir",
+      "options": {
+        "query": "| tstats summariesonly=false prestats=t count from datamodel=Aviatrix_Traffic.Flows where host=$gateway$ Flows.src=$src$ Flows.dest=$dest$ Flows.port=$port$ Flows.log_type=$log_type$ Flows.proto=$proto$ Flows.outcome_key=$action$ Flows.direction=$direction$ by _time Flows.direction\n| timechart count by Flows.direction"
+      }
+    },
+    "ds_flow_entities": {
+      "type": "ds.search",
+      "name": "ds_flow_entities",
+      "options": {
+        "query": "| tstats summariesonly=false fillnull_value=\"-\" count min(_time) as first max(_time) as last from datamodel=Aviatrix_Traffic.Flows where host=$gateway$ Flows.src=$src$ Flows.dest=$dest$ Flows.port=$port$ Flows.log_type=$log_type$ Flows.proto=$proto$ Flows.outcome_key=$action$ Flows.direction=$direction$ by Flows.src Flows.dest Flows.port Flows.proto Flows.outcome Flows.direction host Flows.domain Flows.flow_role\n| rename Flows.* as *"
+      }
+    },
+    "ds_5": {
+      "type": "ds.chain",
+      "name": "ds_5",
+      "options": {
+        "extend": "ds_flow_time",
+        "query": "| eval value=coalesce(Allowed, 0)+coalesce(Blocked, 0)+coalesce('Would block', 0)\n| fields _time value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_6": {
+      "type": "ds.chain",
+      "name": "ds_6",
+      "options": {
+        "extend": "ds_flow_time",
+        "query": "| eval value=coalesce(Blocked, 0)\n| fields _time value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_7": {
+      "type": "ds.chain",
+      "name": "ds_7",
+      "options": {
+        "extend": "ds_flow_time",
+        "query": "| eval value=coalesce('Would block', 0)\n| fields _time value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_8": {
+      "type": "ds.chain",
+      "name": "ds_8",
+      "options": {
+        "extend": "ds_flow_entities",
+        "query": "| stats dc(src) as value"
+      }
+    },
+    "ds_9": {
+      "type": "ds.chain",
+      "name": "ds_9",
+      "options": {
+        "extend": "ds_flow_entities",
+        "query": "| stats dc(dest) as value"
+      }
+    },
+    "ds_10": {
+      "type": "ds.chain",
+      "name": "ds_10",
+      "options": {
+        "extend": "ds_flow_entities",
+        "query": "| where port!=\"none\" | stats dc(port) as value"
+      }
+    },
+    "ds_20": {
+      "type": "ds.chain",
+      "name": "ds_20",
+      "options": {
+        "extend": "ds_flow_entities",
+        "query": "| eval src_net=if(`aviatrix_private_ip(src)`, replace(src, \"\\.\\d+$\", \".0/24\"), \"external\"), service=if(port==\"none\", \"fqdn\", coalesce(`aviatrix_service(port)`, \"port \".port))\n| stats sum(count) as count by src_net service outcome\n| appendpipe [| stats sum(count) as t by src_net | sort - t | head 8 | eval keep_net=1 | fields src_net keep_net]\n| eventstats max(keep_net) as kn by src_net\n| appendpipe [| where isnull(keep_net) | stats sum(count) as t by service | sort - t | head 8 | eval keep_svc=1 | fields service keep_svc]\n| eventstats max(keep_svc) as ks by service\n| where isnull(keep_net) AND isnull(keep_svc) AND isnotnull(count)\n| eval src_net=if(kn==1, src_net, \"other networks\"), service=if(ks==1, service, \"other services\")\n| appendpipe [| stats sum(count) as value by src_net service | rename src_net as source, service as target]\n| appendpipe [| where isnull(source) | stats sum(count) as value by service outcome | rename service as source, outcome as target]\n| where isnotnull(source)\n| table source target value"
+      }
+    },
+    "ds_21": {
+      "type": "ds.chain",
+      "name": "ds_21",
+      "options": {
+        "extend": "ds_flow_entities",
+        "query": "| where port!=\"none\"\n| eval service=coalesce(`aviatrix_service(port)`, \"port\").\" \".port\n| chart sum(count) over service by outcome\n| addtotals fieldname=_total\n| sort - _total | head 15\n| fields - _total"
+      }
+    },
+    "ds_24": {
+      "type": "ds.chain",
+      "name": "ds_24",
+      "options": {
+        "extend": "ds_flow_entities",
+        "query": "| stats sum(count) as Flows dc(dest) as Destinations dc(port) as Ports sum(eval(if(outcome==\"Blocked\", count, 0))) as Blocked sum(eval(if(outcome==\"Would block\", count, 0))) as wb values(direction) as Direction by src\n| eval \"Denied %\"=round((Blocked+wb)/Flows*100, 1)\n| sort - Flows | head 100\n| rename src as Source, wb as \"Would block\"\n| table Source Flows Destinations Ports Blocked \"Would block\" \"Denied %\" Direction"
+      }
+    },
+    "ds_25": {
+      "type": "ds.chain",
+      "name": "ds_25",
+      "options": {
+        "extend": "ds_flow_entities",
+        "query": "| stats sum(count) as Flows dc(src) as Sources values(port) as ports sum(eval(if(outcome==\"Blocked\", count, 0))) as Blocked sum(eval(if(outcome==\"Would block\", count, 0))) as wb values(domain) as dom by dest\n| eval Ports=mvjoin(mvindex(ports, 0, 3), \", \").if(mvcount(ports)>4, \" +\".(mvcount(ports)-4), \"\"), Domain=coalesce(mvindex(mvfilter(dom!=\"-\"), 0), \"-\"), Zone=if(`aviatrix_private_ip(dest)`, \"internal\", \"external\")\n| sort - Flows | head 100\n| rename dest as Destination, wb as \"Would block\"\n| table Destination Domain Zone Ports Flows Sources Blocked \"Would block\""
+      }
+    },
+    "ds_29": {
+      "type": "ds.chain",
+      "name": "ds_29",
+      "options": {
+        "extend": "ds_flow_entities",
+        "query": "| eval probe_port=if(flow_role!=\"reply\", port, null()), probe_dest=if(flow_role!=\"reply\", dest, null())\n| stats dc(probe_port) as Ports dc(probe_dest) as Hosts sum(count) as Flows sum(eval(if(outcome!=\"Allowed\", count, 0))) as denied min(first) as first max(last) as last values(host) as gw by src\n| where Ports>=25 OR Hosts>=25\n| eval Pattern=case(Ports>=Hosts*5, \"Port scan\", Hosts>=Ports*5, \"Host sweep\", 1=1, \"Mixed fan-out\"), \"Denied %\"=round(denied/Flows*100, 1), Gateways=mvjoin(mvindex(gw, 0, 1), \", \"), First=strftime(first, \"%Y-%m-%d %H:%M\"), Last=strftime(last, \"%Y-%m-%d %H:%M\")\n| sort - Ports\n| rename src as Source\n| table Source Pattern Ports Hosts Flows \"Denied %\" Gateways First Last"
+      }
+    },
+    "ds_flow_events": {
+      "type": "ds.search",
+      "name": "ds_flow_events",
+      "options": {
+        "query": "`aviatrix_flows` host=$gateway$ src=$src$ dest=$dest$\n| eval log_type=case(sourcetype==\"aviatrix:firewall:l4\", \"l4\", sourcetype==\"aviatrix:firewall:l7\", \"l7\", 1=1, \"fqdn\"), proto=upper(coalesce(transport, proto, \"tcp\")), port=coalesce(tostring(coalesce(dest_port, dst_port)), \"none\")\n| search log_type=$log_type$ proto=$proto$ port=$port$\n| `aviatrix_outcome`\n| `aviatrix_direction`\n| search outcome_key=$action$ direction=$direction$\n| head 500\n| eval Time=strftime(_time, \"%Y-%m-%d %H:%M:%S\"), Domain=coalesce(sni_hostname, hostname, \"-\"), Policy=coalesce(decided_by, uuid, rule, \"-\"), Log=upper(log_type)\n| rename host as Gateway, src as Source, dest as Destination, port as Port, proto as Proto, outcome as Outcome, direction as Direction\n| table Time Gateway Log Source Destination Port Proto Direction Outcome Domain Policy"
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "options": {
+      "width": 1440,
+      "height": 2206
+    },
+    "structure": [
+      {
+        "item": "viz_11",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_12",
+        "type": "block",
+        "position": {
+          "x": 240,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_13",
+        "type": "block",
+        "position": {
+          "x": 480,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_14",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_15",
+        "type": "block",
+        "position": {
+          "x": 960,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_16",
+        "type": "block",
+        "position": {
+          "x": 1200,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_17",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 150,
+          "w": 960,
+          "h": 280
+        }
+      },
+      {
+        "item": "viz_18",
+        "type": "block",
+        "position": {
+          "x": 960,
+          "y": 150,
+          "w": 480,
+          "h": 280
+        }
+      },
+      {
+        "item": "viz_section_19",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 430,
+          "w": 1440,
+          "h": 44
+        }
+      },
+      {
+        "item": "viz_22",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 474,
+          "w": 720,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_23",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 474,
+          "w": 720,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_26",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 874,
+          "w": 720,
+          "h": 380
+        }
+      },
+      {
+        "item": "viz_27",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 874,
+          "w": 720,
+          "h": 380
+        }
+      },
+      {
+        "item": "viz_section_28",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1254,
+          "w": 1440,
+          "h": 76
+        }
+      },
+      {
+        "item": "viz_30",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1330,
+          "w": 1440,
+          "h": 330
+        }
+      },
+      {
+        "item": "viz_section_31",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1660,
+          "w": 1440,
+          "h": 76
+        }
+      },
+      {
+        "item": "viz_33",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1736,
+          "w": 1440,
+          "h": 470
+        }
+      }
+    ],
+    "globalInputs": [
+      "input_time",
+      "input_gateway",
+      "input_log_type",
+      "input_action",
+      "input_direction",
+      "input_proto",
+      "input_src",
+      "input_dest",
+      "input_port"
+    ]
+  }
+}
+  ]]></definition>
+  <meta type="hiddenElements"><![CDATA[
+{"hideEdit": false, "hideOpenInSearch": false, "hideExport": false}
+  ]]></meta>
+</dashboard>
