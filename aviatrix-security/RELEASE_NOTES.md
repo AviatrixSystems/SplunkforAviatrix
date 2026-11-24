@@ -1,5 +1,9 @@
 # Aviatrix Security - Release Notes
 
+## Version 2.2.1
+
+- **App icon on Splunk 10:** the icon showed on a solid navy (or default gray) square in Splunk 10's side navigation. Splunk 10 paints the nav `color` behind the app icon, so the nav color is now `transparent`, and the icon and logo are rebuilt from the official Aviatrix mark on a transparent background. No dashboard changes.
+
 ## Version 2.2.0
 
 - **Focused on Distributed Cloud Firewall.** Legacy FQDN egress events (`aviatrix:firewall:fqdn`) are deprecated and no longer appear in any dashboard. The `aviatrix_firewall` macro (and everything built on it, including the new data model) covers L4 micro-segmentation and L7 only. The `aviatrix_fqdn` macro remains for saved searches but is unused.
