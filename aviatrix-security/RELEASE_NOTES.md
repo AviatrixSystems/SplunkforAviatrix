@@ -2,6 +2,8 @@
 
 ## Version 2.2.0
 
+- **Focused on Distributed Cloud Firewall.** Legacy FQDN egress events (`aviatrix:firewall:fqdn`) are deprecated and no longer appear in any dashboard. The `aviatrix_firewall` macro (and everything built on it, including the new data model) covers L4 micro-segmentation and L7 only. The `aviatrix_fqdn` macro remains for saved searches but is unused.
+
 Works with Aviatrix Add-on for Splunk 2.0.2 and later (2.2.0 recommended). Requires Splunk Enterprise 9.0+ or Splunk Cloud (Dashboard Studio). Tested on 9.4.7 and 10.6.1.1.
 
 - **All seven dashboards are rebuilt in Dashboard Studio**, with a responsive grid layout that fills the screen at native size, one dark design system, and reserved colors: blue allowed, amber "would block", red blocked, and severity colors with labels.

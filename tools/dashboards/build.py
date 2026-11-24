@@ -21,7 +21,7 @@ from studio import *  # noqa: E402,F401,F403
 
 VIEWS = os.path.join(os.path.dirname(__file__), "..", "..", APP, "default", "data", "ui", "views")
 
-FW_STS = '(sourcetype="aviatrix:firewall:l4" OR sourcetype="aviatrix:firewall:l7" OR sourcetype="aviatrix:firewall:fqdn")'
+FW_STS = '(sourcetype="aviatrix:firewall:l4" OR sourcetype="aviatrix:firewall:l7")'
 
 
 def gw_dropdown(d, sourcetypes, field="host", title="Gateway"):
@@ -160,7 +160,7 @@ def overview():
 | rename dest as Destination, wb as "Would block"
 | table Destination Domain Blocked "Would block" Sources Gateways "Last seen"
 """), count=8, drilldown=link("traffic_analysis", ("dest", "$row.Destination.value$")))),
-          (5, bar("Top L7 / FQDN domains by outcome", d.chain(fw_dom, r"""
+          (5, bar("Top L7 domains (SNI) by outcome", d.chain(fw_dom, r"""
 | where domain!="-"
 | chart sum(count) over domain by outcome
 | addtotals fieldname=_total
@@ -181,10 +181,10 @@ def overview():
 # =================================================================== traffic
 def traffic():
     d = Dashboard("traffic_analysis", "Traffic Analysis",
-                  "Hunt across L4 micro-segmentation, L7 and FQDN flows: who talks to what, on which "
+                  "Hunt across Distributed Cloud Firewall flows (L4 micro-segmentation and L7): who talks to what, on which "
                   "services, and what policy did about it.")
     gw_dropdown(d, FW_STS)
-    d.static_dropdown("log_type", "Log type", [("All", "*"), ("L4 micro-segmentation", "l4"), ("L7 / TLS", "l7"), ("FQDN", "fqdn")])
+    d.static_dropdown("log_type", "Log type", [("All", "*"), ("L4 micro-segmentation", "l4"), ("L7 / TLS", "l7")])
     d.static_dropdown("action", "Outcome", [("All", "*"), ("Allowed", "allowed"), ("Would block (monitor)", "monitor"), ("Blocked", "blocked")])
     d.static_dropdown("direction", "Direction", [("All", "*"), ("East-west", "East-west"), ("Egress", "Egress"), ("Ingress", "Ingress")])
     d.static_dropdown("proto", "Protocol", [("All", "*"), ("TCP", "TCP"), ("UDP", "UDP"), ("ICMP", "ICMP")])
@@ -214,7 +214,7 @@ def traffic():
     d.section("Who talks to what")
     d.row(400,
           (6, sankey("Traffic flow: source network to service to outcome", d.chain(e, r"""
-| eval src_net=if(`aviatrix_private_ip(src)`, replace(src, "\.\d+$", ".0/24"), "external"), service=if(port=="none", "fqdn", coalesce(`aviatrix_service(port)`, "port ".port))
+| eval src_net=if(`aviatrix_private_ip(src)`, replace(src, "\.\d+$", ".0/24"), "external"), service=if(port=="none", "no port", coalesce(`aviatrix_service(port)`, "port ".port))
 | stats sum(count) as count by src_net service outcome
 | appendpipe [| stats sum(count) as t by src_net | sort - t | head 8 | eval keep_net=1 | fields src_net keep_net]
 | eventstats max(keep_net) as kn by src_net
@@ -265,13 +265,13 @@ def traffic():
     d.section("Flow records", "Most recent 500 matching flows. Click a row to open it in Search.")
     d.row(470, (12, table("Flows", d.search(r"""
 `aviatrix_flows` host=$gateway$ src=$src$ dest=$dest$
-| eval log_type=case(sourcetype=="aviatrix:firewall:l4", "l4", sourcetype=="aviatrix:firewall:l7", "l7", 1=1, "fqdn"), proto=upper(coalesce(transport, proto, "tcp")), port=coalesce(tostring(coalesce(dest_port, dst_port)), "none")
+| eval log_type=if(sourcetype=="aviatrix:firewall:l4", "l4", "l7"), proto=upper(coalesce(transport, proto, "tcp")), port=coalesce(tostring(coalesce(dest_port, dst_port)), "none")
 | search log_type=$log_type$ proto=$proto$ port=$port$
 | `aviatrix_outcome`
 | `aviatrix_direction`
 | search outcome_key=$action$ direction=$direction$
 | head 500
-| eval Time=strftime(_time, "%Y-%m-%d %H:%M:%S"), Domain=coalesce(sni_hostname, hostname, "-"), Policy=coalesce(decided_by, uuid, rule, "-"), Log=upper(log_type)
+| eval Time=strftime(_time, "%Y-%m-%d %H:%M:%S"), Domain=coalesce(sni_hostname, "-"), Policy=coalesce(decided_by, uuid, "-"), Log=upper(log_type)
 | rename host as Gateway, src as Source, dest as Destination, port as Port, proto as Proto, outcome as Outcome, direction as Direction
 | table Time Gateway Log Source Destination Port Proto Direction Outcome Domain Policy""", name="ds_flow_events"),
         count=12, colored={"Outcome": TEXT}, drilldown=open_search())))

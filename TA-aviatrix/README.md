@@ -8,7 +8,7 @@ Technology Add-on (TA) for Aviatrix Cloud Firewall logs. Provides field extracti
 |---|---|---|
 | `aviatrix:firewall:l4` | Distributed Cloud Firewall L4 micro-segmentation | Network Traffic |
 | `aviatrix:firewall:l7` | L7 TLS/SNI inspection | Network Traffic |
-| `aviatrix:firewall:fqdn` | FQDN egress filtering | Network Traffic |
+| `aviatrix:firewall:fqdn` | Legacy FQDN egress filtering (**deprecated**, removal planned for 3.0) | Network Traffic, Web |
 | `aviatrix:ids` | Suricata IDS alerts (EVE JSON) | Intrusion Detection |
 | `aviatrix:gateway:network` | Gateway network throughput statistics | Performance |
 | `aviatrix:gateway:system` | Gateway CPU, memory, disk health | Performance |
@@ -37,7 +37,7 @@ Create an HEC token in Splunk and configure your Aviatrix Controller's CoPilot o
 
 This add-on maps Aviatrix fields to the Splunk Common Information Model:
 
-**Network Traffic** (L4, L7, FQDN):
+**Network Traffic** (L4, L7; legacy FQDN until 3.0):
 - `src`, `dest`, `dest_port`, `transport`, `bytes`, `packets`, `duration`, `action`, `rule`, `dvc`, `vendor_product`
 - `action` is the traffic outcome, `allowed` or `blocked`. A deny from a rule in monitor mode (`enforced=false`) doesn't drop traffic, so it is `allowed`.
 - `vendor_action` is the raw value (`PERMIT`/`DENY`, `Permit`/`Deny`).

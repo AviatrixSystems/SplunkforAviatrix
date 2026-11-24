@@ -1,10 +1,10 @@
 <dashboard version="2" theme="dark">
   <label>Traffic Analysis</label>
-  <description>Hunt across L4 micro-segmentation, L7 and FQDN flows: who talks to what, on which services, and what policy did about it.</description>
+  <description>Hunt across Distributed Cloud Firewall flows (L4 micro-segmentation and L7): who talks to what, on which services, and what policy did about it.</description>
   <definition><![CDATA[
 {
   "title": "Traffic Analysis",
-  "description": "Hunt across L4 micro-segmentation, L7 and FQDN flows: who talks to what, on which services, and what policy did about it.",
+  "description": "Hunt across Distributed Cloud Firewall flows (L4 micro-segmentation and L7): who talks to what, on which services, and what policy did about it.",
   "inputs": {
     "input_time": {
       "type": "input.timerange",
@@ -66,10 +66,6 @@
           {
             "label": "L7 / TLS",
             "value": "l7"
-          },
-          {
-            "label": "FQDN",
-            "value": "fqdn"
           }
         ]
       }
@@ -666,7 +662,7 @@
       "type": "ds.search",
       "name": "ds_input_gateway",
       "options": {
-        "query": "| tstats count where `aviatrix_index` (sourcetype=\"aviatrix:firewall:l4\" OR sourcetype=\"aviatrix:firewall:l7\" OR sourcetype=\"aviatrix:firewall:fqdn\") by host\n| sort - count | head 300\n| eval label=host, value=host | fields label value",
+        "query": "| tstats count where `aviatrix_index` (sourcetype=\"aviatrix:firewall:l4\" OR sourcetype=\"aviatrix:firewall:l7\") by host\n| sort - count | head 300\n| eval label=host, value=host | fields label value",
         "queryParameters": {
           "earliest": "$time.earliest$",
           "latest": "$time.latest$"
@@ -747,7 +743,7 @@
       "name": "ds_20",
       "options": {
         "extend": "ds_flow_entities",
-        "query": "| eval src_net=if(`aviatrix_private_ip(src)`, replace(src, \"\\.\\d+$\", \".0/24\"), \"external\"), service=if(port==\"none\", \"fqdn\", coalesce(`aviatrix_service(port)`, \"port \".port))\n| stats sum(count) as count by src_net service outcome\n| appendpipe [| stats sum(count) as t by src_net | sort - t | head 8 | eval keep_net=1 | fields src_net keep_net]\n| eventstats max(keep_net) as kn by src_net\n| appendpipe [| where isnull(keep_net) | stats sum(count) as t by service | sort - t | head 8 | eval keep_svc=1 | fields service keep_svc]\n| eventstats max(keep_svc) as ks by service\n| where isnull(keep_net) AND isnull(keep_svc) AND isnotnull(count)\n| eval src_net=if(kn==1, src_net, \"other networks\"), service=if(ks==1, service, \"other services\")\n| appendpipe [| stats sum(count) as value by src_net service | rename src_net as source, service as target]\n| appendpipe [| where isnull(source) | stats sum(count) as value by service outcome | rename service as source, outcome as target]\n| where isnotnull(source)\n| table source target value"
+        "query": "| eval src_net=if(`aviatrix_private_ip(src)`, replace(src, \"\\.\\d+$\", \".0/24\"), \"external\"), service=if(port==\"none\", \"no port\", coalesce(`aviatrix_service(port)`, \"port \".port))\n| stats sum(count) as count by src_net service outcome\n| appendpipe [| stats sum(count) as t by src_net | sort - t | head 8 | eval keep_net=1 | fields src_net keep_net]\n| eventstats max(keep_net) as kn by src_net\n| appendpipe [| where isnull(keep_net) | stats sum(count) as t by service | sort - t | head 8 | eval keep_svc=1 | fields service keep_svc]\n| eventstats max(keep_svc) as ks by service\n| where isnull(keep_net) AND isnull(keep_svc) AND isnotnull(count)\n| eval src_net=if(kn==1, src_net, \"other networks\"), service=if(ks==1, service, \"other services\")\n| appendpipe [| stats sum(count) as value by src_net service | rename src_net as source, service as target]\n| appendpipe [| where isnull(source) | stats sum(count) as value by service outcome | rename service as source, outcome as target]\n| where isnotnull(source)\n| table source target value"
       }
     },
     "ds_21": {
@@ -786,7 +782,7 @@
       "type": "ds.search",
       "name": "ds_flow_events",
       "options": {
-        "query": "`aviatrix_flows` host=$gateway$ src=$src$ dest=$dest$\n| eval log_type=case(sourcetype==\"aviatrix:firewall:l4\", \"l4\", sourcetype==\"aviatrix:firewall:l7\", \"l7\", 1=1, \"fqdn\"), proto=upper(coalesce(transport, proto, \"tcp\")), port=coalesce(tostring(coalesce(dest_port, dst_port)), \"none\")\n| search log_type=$log_type$ proto=$proto$ port=$port$\n| `aviatrix_outcome`\n| `aviatrix_direction`\n| search outcome_key=$action$ direction=$direction$\n| head 500\n| eval Time=strftime(_time, \"%Y-%m-%d %H:%M:%S\"), Domain=coalesce(sni_hostname, hostname, \"-\"), Policy=coalesce(decided_by, uuid, rule, \"-\"), Log=upper(log_type)\n| rename host as Gateway, src as Source, dest as Destination, port as Port, proto as Proto, outcome as Outcome, direction as Direction\n| table Time Gateway Log Source Destination Port Proto Direction Outcome Domain Policy"
+        "query": "`aviatrix_flows` host=$gateway$ src=$src$ dest=$dest$\n| eval log_type=if(sourcetype==\"aviatrix:firewall:l4\", \"l4\", \"l7\"), proto=upper(coalesce(transport, proto, \"tcp\")), port=coalesce(tostring(coalesce(dest_port, dst_port)), \"none\")\n| search log_type=$log_type$ proto=$proto$ port=$port$\n| `aviatrix_outcome`\n| `aviatrix_direction`\n| search outcome_key=$action$ direction=$direction$\n| head 500\n| eval Time=strftime(_time, \"%Y-%m-%d %H:%M:%S\"), Domain=coalesce(sni_hostname, \"-\"), Policy=coalesce(decided_by, uuid, \"-\"), Log=upper(log_type)\n| rename host as Gateway, src as Source, dest as Destination, port as Port, proto as Proto, outcome as Outcome, direction as Direction\n| table Time Gateway Log Source Destination Port Proto Direction Outcome Domain Policy"
       }
     }
   },

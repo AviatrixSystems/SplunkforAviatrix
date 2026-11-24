@@ -615,7 +615,7 @@
     },
     "viz_32": {
       "type": "splunk.bar",
-      "title": "Top L7 / FQDN domains by outcome",
+      "title": "Top L7 domains (SNI) by outcome",
       "dataSources": {
         "primary": "ds_30"
       },
@@ -696,7 +696,7 @@
       "type": "ds.search",
       "name": "ds_input_gateway",
       "options": {
-        "query": "| tstats count where `aviatrix_index` (sourcetype=\"aviatrix:firewall:l4\" OR sourcetype=\"aviatrix:firewall:l7\" OR sourcetype=\"aviatrix:firewall:fqdn\") by host\n| sort - count | head 300\n| eval label=host, value=host | fields label value",
+        "query": "| tstats count where `aviatrix_index` (sourcetype=\"aviatrix:firewall:l4\" OR sourcetype=\"aviatrix:firewall:l7\") by host\n| sort - count | head 300\n| eval label=host, value=host | fields label value",
         "queryParameters": {
           "earliest": "$time.earliest$",
           "latest": "$time.latest$"

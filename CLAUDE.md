@@ -52,7 +52,7 @@ aviatrix-security/
 |---|---|
 | `aviatrix:firewall:l4` | DCF L4 micro-segmentation logs |
 | `aviatrix:firewall:l7` | DCF L7 TLS/SNI inspection logs |
-| `aviatrix:firewall:fqdn` | FQDN egress filtering logs |
+| `aviatrix:firewall:fqdn` | Legacy FQDN egress logs. **Deprecated in 2.2.0**: the TA still parses it, the app ignores it (DCF L4/L7 only). Removal planned for 3.0 |
 | `aviatrix:ids` | Suricata IDS alerts (EVE JSON) |
 | `aviatrix:gateway:network` | Gateway network statistics |
 | `aviatrix:gateway:system` | Gateway CPU/memory/disk statistics |
@@ -63,9 +63,10 @@ aviatrix-security/
 ### Key Macros (in aviatrix-security)
 
 - `aviatrix_index` -- base index filter (default: `index=main`)
+- `aviatrix_firewall` -- DCF traffic (L4 + L7; FQDN excluded as of 2.2.0)
 - `aviatrix_l4` -- L4 firewall events
 - `aviatrix_l7` -- L7 firewall events
-- `aviatrix_fqdn` -- FQDN egress events
+- `aviatrix_fqdn` -- legacy FQDN egress events (deprecated, unused by dashboards)
 - `aviatrix_ids` -- IDS/Suricata alerts
 - `aviatrix_audit` -- Controller audit logs
 - `aviatrix_vpn` -- User VPN session events; `aviatrix_vpn_fields` normalizes them (works with TA < 2.1.0)

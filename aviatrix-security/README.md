@@ -12,7 +12,7 @@ Security visibility and analytics app for Aviatrix Distributed Cloud Firewall. P
 At-a-glance security posture with KPIs for total events, blocked sessions, IDS alerts, and active gateways. Includes a threat timeline, top blocked destinations, IDS signature summary, and gateway block rates.
 
 ### Traffic Analysis
-Deep-dive into L4/L7/FQDN traffic patterns. Filter by gateway, action (allowed/blocked), and protocol. Analyze traffic volume over time, top sources and destinations, and drill into individual events.
+Deep-dive into Distributed Cloud Firewall (L4/L7) traffic patterns. Filter by gateway, action (allowed/blocked), and protocol. Analyze traffic volume over time, top sources and destinations, and drill into individual events.
 
 ### Threat Detection
 IDS alert monitoring with severity breakdown, alert timeline, signature analysis, and source/destination correlation. Filter by severity level and signature to investigate specific threats.

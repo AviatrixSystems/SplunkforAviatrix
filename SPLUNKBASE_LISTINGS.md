@@ -19,14 +19,13 @@ The Aviatrix Add-on for Splunk provides field extractions, lookups, and CIM-comp
 **Supported Log Types:**
 - L4 Firewall (DCF micro-segmentation) — allow/deny with session metadata
 - L7 Firewall (TLS/SNI inspection) — domain-level policy enforcement
-- FQDN Egress Filtering — hostname-based egress controls
 - IDS (Suricata) — intrusion detection alerts in EVE JSON format
 - Gateway Health — network throughput, CPU, memory, and disk statistics
 - Controller Audit — API audit logs for configuration change tracking
 - User VPN — session connect/disconnect with user, client IP, duration and bytes
 
 **CIM Data Models:**
-- Network Traffic (L4, L7, FQDN)
+- Network Traffic (L4, L7)
 - Intrusion Detection (IDS/Suricata)
 - Change Analysis (Controller Audit)
 - Network Sessions and Authentication (User VPN)
@@ -72,7 +71,7 @@ Aviatrix Security provides pre-built dashboards for monitoring and investigating
 
 **Dashboards:**
 - **Security Overview** — KPIs, threat timeline, top blocked destinations, IDS summary, gateway block rates
-- **Traffic Analysis** — L4/L7/FQDN traffic patterns, top sources/destinations, protocol breakdown
+- **Traffic Analysis** — Distributed Cloud Firewall (L4/L7) traffic patterns, top sources/destinations, protocol breakdown
 - **Threat Detection** — IDS alert severity, signature analysis, source/destination correlation
 - **Policy Enforcement** — L7 policy hits, allow/deny ratios, enforced vs. monitor mode, domain analysis
 - **Gateway Health** — CPU, memory, disk, network throughput per gateway

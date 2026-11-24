@@ -2,6 +2,7 @@
 
 ## Version 2.2.0
 
+- **Deprecated: legacy FQDN egress filter logs (`aviatrix:firewall:fqdn`).** Aviatrix security analytics now focus on the Distributed Cloud Firewall (L4 micro-segmentation + L7). The TA still parses the sourcetype, and its `aviatrix_fqdn` event type keeps its CIM tags, so existing searches and Enterprise Security data models work. It is no longer part of `aviatrix_firewall_traffic`, `aviatrix_traffic_allowed` or `aviatrix_traffic_blocked`. Removal is planned for 3.0; move egress controls to DCF L7 (SNI) policies.
 - **New sourcetype support: `aviatrix:tunnel:status`** (tunnel up/down changes). Fields: `dvc`/`src_gw_name`, `dest`/`dst_gw_name`, `src_cloud`/`src_region`, `dst_cloud`/`dst_region`, `tunnel`, `status` (`up`/`down`). New event types `aviatrix_tunnel_status` and `aviatrix_tunnel_down`.
 - **L4**: New `policy_mode` (`enforced`/`monitor`) and `session_phase` (`start`/`end`/`none`) so searches can count each 8.2+ flow once (start and end are separate events). `session_end_reason` is looked up into `session_end_description`. Unresolved `%{session_*}` placeholders are nulled.
 - **L7**: `transport` is lowercase (gateways send both `TCP` and `tcp`). New `policy_mode`, `signature_id` (from the 8.2 inline-IPS `sid`), and `l7_event_class`, which separates policy verdicts from inline IPS drops, IDS alerts, IDS-unavailable timeouts, TLS inspection checks and SYN-only timeouts. New event type `aviatrix_l7_threat`.
