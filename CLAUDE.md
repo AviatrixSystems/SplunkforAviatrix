@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repository contains two Splunk apps for **Aviatrix Distributed Cloud Firewall** security visibility, TA 2.0.2 / app 2.0.1. Logs are ingested via HEC (HTTP Event Collector) with CIM-compliant field normalization.
+This repository contains two Splunk apps for **Aviatrix Distributed Cloud Firewall** security visibility, TA 2.1.0 / app 2.1.0. Logs are ingested via HEC (HTTP Event Collector) with CIM-compliant field normalization.
 
 ## Architecture
 
@@ -35,13 +35,14 @@ aviatrix-security/
 │   ├── macros.conf         # Search macros (aviatrix_index, aviatrix_l4, etc.)
 │   └── data/ui/
 │       ├── nav/default.xml
-│       └── views/          # 6 dashboards
+│       └── views/          # 7 dashboards
 │           ├── overview.xml
 │           ├── traffic_analysis.xml
 │           ├── threat_detection.xml
 │           ├── policy_enforcement.xml
 │           ├── gateway_health.xml
-│           └── audit_trail.xml
+│           ├── audit_trail.xml
+│           └── vpn_sessions.xml
 └── metadata/default.meta
 ```
 
@@ -56,6 +57,7 @@ aviatrix-security/
 | `aviatrix:gateway:network` | Gateway network statistics |
 | `aviatrix:gateway:system` | Gateway CPU/memory/disk statistics |
 | `aviatrix:controller:audit` | Controller API audit logs |
+| `aviatrix:vpn:session` | User VPN session connect/disconnect |
 
 ### Key Macros (in aviatrix-security)
 
@@ -65,6 +67,7 @@ aviatrix-security/
 - `aviatrix_fqdn` -- FQDN egress events
 - `aviatrix_ids` -- IDS/Suricata alerts
 - `aviatrix_audit` -- Controller audit logs
+- `aviatrix_vpn` -- User VPN session events; `aviatrix_vpn_fields` normalizes them (works with TA < 2.1.0)
 
 ### CIM Field Mapping
 
@@ -77,6 +80,8 @@ For L4/L7, `action` is normalized to the CIM value with calculated fields (`EVAL
 - Dashboards use the `aviatrix_traffic_action` macro for the traffic outcome, so app 2.0.1 works with TA 2.0.0 through 2.0.2. The L7 Firewall Activity dashboard deliberately uses `action_cim` (policy verdict).
 - IDS: `severity` is the CIM string and `severity_id` is numeric. Dashboards filter on `severity_id`.
 - Audit: `action` is the CIM verb (from the REST `method=` in `syslog`, or the legacy command name plus argv sub-op). The raw API name or URL is in `command`. `status`/`result_status` are `success`/`failure`; raw `result` can be `Success`, `Fail`, or an HTTP status line like `201 CREATED`. The app normalizes these through the `aviatrix_audit_fields` macro.
+
+- VPN (TA 2.1.0): Network_Sessions (tags `network session vpn` + `start`/`end`) and Authentication (connect events only, tag `authentication`). `action` is `success` on connect (Authentication needs it) and `deleted` on disconnect; raw status in `vendor_action`. Fields are parsed from the `AviatrixVPNSession:` text in `_raw` (the connector's `vpn_gateway_ip` is a `%{...}` placeholder when empty), so plain-syslog events with this sourcetype work too. `dest_ip` = virtual IP, `src` = client public IP, `dvc`/`dest` = gateway, `duration` in seconds, `bytes_in` = RX (from client), `bytes_out` = TX (1024-based units).
 
 **SPL gotcha:** `OR` binds tighter than the implied `AND`, so never write `(`macro_a` OR `macro_b`)` when the macros expand to multiple terms. Use `` `aviatrix_index` (sourcetype=a OR sourcetype=b) ``.
 

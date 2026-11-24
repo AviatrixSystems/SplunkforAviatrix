@@ -10,6 +10,8 @@ Security visibility and analytics for **Aviatrix Distributed Cloud Firewall** in
 
 ![Threat Detection](screenshots/03_threat_detection.png)
 
+![VPN Sessions](screenshots/07_vpn_sessions.png)
+
 ## Apps
 
 This repository contains two Splunk apps, designed to be installed together:
@@ -29,8 +31,9 @@ Field extractions, lookups, and CIM data normalization for Aviatrix logs ingeste
 | `aviatrix:gateway:network` | Gateway network statistics |
 | `aviatrix:gateway:system` | Gateway CPU/memory/disk statistics |
 | `aviatrix:controller:audit` | Controller API audit logs |
+| `aviatrix:vpn:session` | User VPN session connect/disconnect |
 
-**CIM data models:** Network Traffic, Intrusion Detection, Change Analysis
+**CIM data models:** Network Traffic, Intrusion Detection, Change Analysis, Performance, Network Sessions, Authentication
 
 ### aviatrix-security (Visualization App)
 
@@ -44,6 +47,7 @@ Pre-built dashboards for monitoring Aviatrix Cloud Firewall activity.
 - **Policy Enforcement** -- L7 policy hits, allow/deny ratios, domain analysis
 - **Gateway Health** -- CPU, memory, disk, network throughput per gateway
 - **Audit Trail** -- Controller API changes, user activity, success/failure tracking
+- **VPN Sessions** -- User VPN connections: open sessions, top users by time and data, client versions, source locations
 
 ## Log Ingestion
 

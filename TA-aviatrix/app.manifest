@@ -5,7 +5,7 @@
     "id": {
       "group": null,
       "name": "TA-aviatrix",
-      "version": "2.0.2"
+      "version": "2.1.0"
     },
     "author": [
       {
@@ -15,7 +15,7 @@
       }
     ],
     "releaseDate": null,
-    "description": "Technology Add-on for Aviatrix Cloud Firewall logs. Provides field extractions, CIM compliance, and data normalization for Aviatrix security logs.",
+    "description": "Technology Add-on for Aviatrix Cloud Firewall logs. Provides field extractions, CIM compliance, and data normalization for Aviatrix security and User VPN logs.",
     "classification": {
       "intendedAudience": "Security",
       "categories": ["Security, Fraud & Compliance", "IT Operations"],
@@ -24,7 +24,9 @@
     "commonInformationModels": {
       "Network Traffic": ">=4.0.0",
       "Intrusion Detection": ">=4.0.0",
-      "Change Analysis": ">=4.0.0"
+      "Change Analysis": ">=4.0.0",
+      "Network Sessions": ">=4.0.0",
+      "Authentication": ">=4.0.0"
     },
     "license": {
       "name": "Apache License 2.0",
@@ -37,7 +39,7 @@
       "uri": null
     },
     "releaseNotes": {
-      "name": "Version 2.0.2",
+      "name": "Version 2.1.0",
       "text": "RELEASE_NOTES.md",
       "uri": null
     }

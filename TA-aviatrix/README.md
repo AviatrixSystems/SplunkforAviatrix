@@ -1,6 +1,6 @@
 # Aviatrix Add-on for Splunk
 
-Technology Add-on (TA) for Aviatrix Cloud Firewall logs. Provides field extractions, lookups, CIM compliance, and data normalization for Aviatrix security logs ingested via HEC (HTTP Event Collector).
+Technology Add-on (TA) for Aviatrix Cloud Firewall logs. Provides field extractions, lookups, CIM compliance, and data normalization for Aviatrix security and User VPN logs ingested via HEC (HTTP Event Collector).
 
 ## Supported Log Types
 
@@ -13,6 +13,7 @@ Technology Add-on (TA) for Aviatrix Cloud Firewall logs. Provides field extracti
 | `aviatrix:gateway:network` | Gateway network throughput statistics | Performance |
 | `aviatrix:gateway:system` | Gateway CPU, memory, disk health | Performance |
 | `aviatrix:controller:audit` | Controller API audit logs | Change Analysis |
+| `aviatrix:vpn:session` | User VPN session connect/disconnect | Network Sessions, Authentication |
 
 ## Installation
 
@@ -48,6 +49,12 @@ This add-on maps Aviatrix fields to the Splunk Common Information Model:
 
 **Change Analysis** (Audit):
 - `action` (`created`/`modified`/`deleted`/`read`), `command` (raw API name or URL), `user`, `src`, `dest`, `object`, `object_id`, `object_category`, `status` (`success`/`failure`), `change_type`, `dvc`, `vendor_product`
+
+**Network Sessions** and **Authentication** (User VPN):
+- Every event is tagged `network`, `session`, `vpn`. Connects add `start` and `authentication`; disconnects add `end`.
+- `user`, `src` (client public IP), `dest_ip` (VPN virtual IP), `dvc`/`dest` (VPN gateway), `dvc_ip`, `app` (`aviatrix:vpn`), `signature`, `vendor_product`
+- `action` is `success` on connect (a successful VPN login) and `deleted` on disconnect. The raw status (`active`/`disconnected`) is in `vendor_action`.
+- Disconnects carry `duration` (seconds), `bytes_in` (received from the client), `bytes_out` (sent to the client) and `bytes`, converted from the `D:H:M:S` and `8.7KB`-style values.
 
 ## Lookups
 

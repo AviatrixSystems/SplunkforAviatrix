@@ -1,0 +1,251 @@
+<form version="1.1" theme="dark">
+  <label>VPN Sessions</label>
+  <description>Aviatrix User VPN: who is connected, from where, for how long, and how much data they moved</description>
+
+  <fieldset submitButton="false" autoRun="true">
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time Range</label>
+      <default>
+        <earliest>-7d@d</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="text" token="user" searchWhenChanged="true">
+      <label>User</label>
+      <default>*</default>
+    </input>
+    <input type="text" token="gateway" searchWhenChanged="true">
+      <label>VPN Gateway</label>
+      <default>*</default>
+    </input>
+    <input type="text" token="src" searchWhenChanged="true">
+      <label>Client Public IP</label>
+      <default>*</default>
+    </input>
+  </fieldset>
+
+  <!-- One search feeds every panel -->
+  <search id="vpn_base">
+    <query>`aviatrix_vpn`
+| `aviatrix_vpn_fields`
+| search user=$user|s$ dvc=$gateway|s$
+| where "$src$"="*" OR src="$src$"
+| fields _time, session_id, vpn_status, user, src, dest_ip, dvc, vpn_login, vpn_logout, duration, bytes_in, bytes_out, bytes, client_platform, client_version</query>
+    <earliest>$time.earliest$</earliest>
+    <latest>$time.latest$</latest>
+  </search>
+
+  <!-- KPI Row -->
+  <row>
+    <panel>
+      <title>Sessions Started</title>
+      <single>
+        <search base="vpn_base">
+          <query>where vpn_status="active" | stats count</query>
+        </search>
+        <option name="colorMode">none</option>
+        <option name="useColors">0</option>
+        <option name="numberPrecision">0</option>
+        <option name="useThousandSeparators">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Still Connected</title>
+      <single>
+        <search base="vpn_base">
+          <query>stats min(_time) as connected values(vpn_status) as states by session_id, dvc, dest_ip | eventstats max(connected) as newest by dvc, dest_ip | where isnull(mvfind(states, "^disconnected$")) AND connected=newest | stats count</query>
+        </search>
+        <option name="colorMode">none</option>
+        <option name="useColors">0</option>
+        <option name="numberPrecision">0</option>
+        <option name="useThousandSeparators">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Unique Users</title>
+      <single>
+        <search base="vpn_base">
+          <query>stats dc(user)</query>
+        </search>
+        <option name="colorMode">none</option>
+        <option name="useColors">0</option>
+        <option name="numberPrecision">0</option>
+        <option name="useThousandSeparators">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Client Locations (Public IPs)</title>
+      <single>
+        <search base="vpn_base">
+          <query>stats dc(src)</query>
+        </search>
+        <option name="colorMode">none</option>
+        <option name="useColors">0</option>
+        <option name="numberPrecision">0</option>
+        <option name="useThousandSeparators">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Data Transferred</title>
+      <single>
+        <search base="vpn_base">
+          <query>where vpn_status="disconnected" | stats sum(bytes) as bytes | eval bytes=`aviatrix_bytes_format(coalesce(bytes, 0))`</query>
+        </search>
+        <option name="colorMode">none</option>
+        <option name="useColors">0</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Avg Session Length</title>
+      <single>
+        <search base="vpn_base">
+          <query>where vpn_status="disconnected" | stats avg(duration) as d | eval d=`aviatrix_duration_format(round(coalesce(d, 0)))`</query>
+        </search>
+        <option name="colorMode">none</option>
+        <option name="useColors">0</option>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Active sessions -->
+  <row>
+    <panel>
+      <title>Open Sessions</title>
+      <description>Connected in the time range with no disconnect logged, and the virtual IP not since reassigned to a newer session</description>
+      <table>
+        <search base="vpn_base">
+          <query>stats min(_time) as connected values(vpn_status) as states latest(src) as src latest(client_platform) as platform latest(client_version) as client by session_id, user, dvc, dest_ip
+| eventstats max(connected) as newest by dvc, dest_ip
+| where isnull(mvfind(states, "^disconnected$")) AND connected=newest
+| eval connected_for=tostring(now()-connected, "duration"), connected=strftime(connected, "%Y-%m-%d %H:%M:%S")
+| sort - connected
+| table connected, connected_for, user, dvc, dest_ip, src, platform, client
+| rename dvc as gateway, dest_ip as virtual_ip, src as "client public IP"</query>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">none</option>
+        <option name="wrap">false</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Trends -->
+  <row>
+    <panel>
+      <title>Sessions Started Over Time by Gateway</title>
+      <chart>
+        <search base="vpn_base">
+          <query>where vpn_status="active" | timechart count by dvc</query>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.text">sessions</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Data Transferred Over Time (MB)</title>
+      <chart>
+        <search base="vpn_base">
+          <query>where vpn_status="disconnected" | timechart sum(eval(round(bytes_in/1048576, 2))) as "from clients" sum(eval(round(bytes_out/1048576, 2))) as "to clients"</query>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.text">MB</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Users -->
+  <row>
+    <panel>
+      <title>Top Users</title>
+      <table>
+        <search base="vpn_base">
+          <query>stats dc(eval(if(vpn_status="active", session_id, null()))) as sessions sum(duration) as seconds sum(bytes_in) as bytes_in sum(bytes_out) as bytes_out dc(src) as public_ips latest(_time) as last_seen by user
+| sort - seconds
+| eval connected_time=if(isnull(seconds), "-", tostring(seconds, "duration")), from_clients=if(isnull(bytes_in), "-", `aviatrix_bytes_format(bytes_in)`), to_clients=if(isnull(bytes_out), "-", `aviatrix_bytes_format(bytes_out)`), last_seen=strftime(last_seen, "%Y-%m-%d %H:%M")
+| table user, sessions, connected_time, from_clients, to_clients, public_ips, last_seen</query>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">cell</option>
+        <option name="wrap">false</option>
+        <drilldown>
+          <condition field="user">
+            <set token="form.user">$row.user$</set>
+          </condition>
+        </drilldown>
+      </table>
+    </panel>
+    <panel>
+      <title>Client Platform and Version</title>
+      <table>
+        <search base="vpn_base">
+          <query>where vpn_status="active" | stats count as sessions dc(user) as users by client_platform, client_version | sort - sessions | rename client_platform as platform, client_version as "client version"</query>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Geography -->
+  <row>
+    <panel>
+      <title>Client Locations</title>
+      <map>
+        <search base="vpn_base">
+          <query>where vpn_status="active" AND isnotnull(src) | iplocation src | geostats latfield=lat longfield=lon count by user</query>
+        </search>
+        <option name="mapping.type">marker</option>
+        <option name="mapping.map.center">(30,0)</option>
+        <option name="mapping.map.zoom">2</option>
+        <option name="drilldown">none</option>
+      </map>
+    </panel>
+    <panel>
+      <title>Connections by Client Public IP</title>
+      <table>
+        <search base="vpn_base">
+          <query>where vpn_status="active" AND isnotnull(src)
+| stats count as sessions values(user) as users latest(_time) as last_seen by src
+| iplocation src
+| eval location=mvjoin(mvappend(if(City!="", City, null()), if(Region!="", Region, null()), if(Country!="", Country, null())), ", ")
+| eval location=coalesce(location, "private / unknown"), last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S")
+| sort - sessions
+| table src, location, users, sessions
+| rename src as "client public IP"</query>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">cell</option>
+        <option name="wrap">false</option>
+        <drilldown>
+          <condition field="client public IP">
+            <set token="form.src">$row.client public IP$</set>
+          </condition>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Event log -->
+  <row>
+    <panel>
+      <title>Session Events</title>
+      <table>
+        <search base="vpn_base">
+          <query>sort - _time
+| eval time=strftime(_time, "%Y-%m-%d %H:%M:%S"), length=if(isnotnull(duration), tostring(duration, "duration"), ""), data=if(isnotnull(bytes), `aviatrix_bytes_format(bytes)`, "")
+| table time, vpn_status, user, dvc, dest_ip, src, vpn_login, length, data, client_platform, client_version
+| rename vpn_status as status, dvc as gateway, dest_ip as virtual_ip, src as "public IP", vpn_login as "session login", client_platform as platform, client_version as client</query>
+        </search>
+        <option name="count">15</option>
+        <option name="drilldown">none</option>
+        <option name="wrap">false</option>
+      </table>
+    </panel>
+  </row>
+</form>

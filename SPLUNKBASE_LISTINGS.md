@@ -23,11 +23,13 @@ The Aviatrix Add-on for Splunk provides field extractions, lookups, and CIM-comp
 - IDS (Suricata) — intrusion detection alerts in EVE JSON format
 - Gateway Health — network throughput, CPU, memory, and disk statistics
 - Controller Audit — API audit logs for configuration change tracking
+- User VPN — session connect/disconnect with user, client IP, duration and bytes
 
 **CIM Data Models:**
 - Network Traffic (L4, L7, FQDN)
 - Intrusion Detection (IDS/Suricata)
 - Change Analysis (Controller Audit)
+- Network Sessions and Authentication (User VPN)
 
 **Features:**
 - Automatic JSON field extraction for all Aviatrix HEC sourcetypes
@@ -75,6 +77,7 @@ Aviatrix Security provides pre-built dashboards for monitoring and investigating
 - **Policy Enforcement** — L7 policy hits, allow/deny ratios, enforced vs. monitor mode, domain analysis
 - **Gateway Health** — CPU, memory, disk, network throughput per gateway
 - **Audit Trail** — Controller API changes, user activity, success/failure tracking
+- **VPN Sessions** — User VPN open sessions, top users, client versions and locations
 
 **Features:**
 - Interactive filters (time range, gateway, action, severity)

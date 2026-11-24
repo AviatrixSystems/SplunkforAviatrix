@@ -4,7 +4,7 @@ Security visibility and analytics app for Aviatrix Distributed Cloud Firewall. P
 
 ## Prerequisites
 
-- **Aviatrix Add-on for Splunk** (`TA-aviatrix`) version 2.0.0 or later must be installed (2.0.2 or later recommended).
+- **Aviatrix Add-on for Splunk** (`TA-aviatrix`) version 2.0.0 or later must be installed (2.1.0 or later recommended).
 
 ## Dashboards
 
@@ -26,6 +26,9 @@ Real-time gateway status monitoring with CPU utilization, memory usage, disk cap
 ### Audit Trail
 Controller API audit log analysis. Track configuration changes, user activity, success/failure rates, and policy/security-related changes over time.
 
+### VPN Sessions
+Aviatrix User VPN activity: sessions started, open sessions (no disconnect yet), unique users and client locations, data transferred and average session length. Includes sessions over time by gateway, top users by connected time and data, client platform and version, a client location map, and the session event log. Filter by user, VPN gateway and client public IP.
+
 ## Installation
 
 1. Install the **Aviatrix Add-on for Splunk** (`TA-aviatrix`) first.
@@ -46,7 +49,7 @@ By default, dashboards query `index=main`. To change this, edit the `aviatrix_in
 
 - Splunk Enterprise 8.0+
 - Splunk Cloud
-- Requires Aviatrix Add-on for Splunk (TA-aviatrix) >= 2.0.0. If you upgrade the add-on to 2.0.2, upgrade this app to 2.0.1 or later.
+- Requires Aviatrix Add-on for Splunk (TA-aviatrix) >= 2.0.0. If you upgrade the add-on to 2.0.2, upgrade this app to 2.0.1 or later. The VPN Sessions dashboard works with any 2.x add-on; add-on 2.1.0 adds the CIM mappings.
 
 ## License
 
