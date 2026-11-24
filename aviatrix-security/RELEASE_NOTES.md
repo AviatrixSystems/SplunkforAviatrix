@@ -1,5 +1,17 @@
 # Aviatrix Security - Release Notes
 
+## Version 2.1.0
+
+Works with Aviatrix Add-on for Splunk 2.0.0 and later (2.1.0 recommended).
+
+- **New VPN Sessions dashboard** (Security menu) for Aviatrix User VPN:
+  - KPIs: sessions started, still connected, unique users, client public IPs, data transferred and average session length.
+  - Open sessions: connects with no disconnect, unless a newer session has since been given the same virtual IP on that gateway.
+  - Sessions over time by gateway, data transferred over time, and top users by connected time and data.
+  - Client platform and version, a client location map, connections by public IP with geolocation, and the session event log.
+  - Filters for user, VPN gateway and client public IP. Clicking a user or IP applies it as a filter.
+- New macros: `aviatrix_vpn` (VPN session events) and `aviatrix_vpn_fields` (normalized user, IPs, gateway, duration and bytes). With add-on versions before 2.1.0 the macro derives these from the connector's fields.
+
 ## Version 2.0.1
 
 Works with Aviatrix Add-on for Splunk 2.0.0 and later. Required with add-on 2.0.2.

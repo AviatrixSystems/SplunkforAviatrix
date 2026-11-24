@@ -23,11 +23,12 @@ This add-on provides:
 | `aviatrix:gateway:network` | Gateway network stats |
 | `aviatrix:gateway:system` | Gateway CPU/memory/disk stats |
 | `aviatrix:controller:audit` | Controller API audit logs |
+| `aviatrix:vpn:session` | User VPN session connect/disconnect |
 
 ### 2. aviatrix-security (Visualization App)
 **Location:** `aviatrix-security/`
 
-This app provides 7 dashboards:
+This app provides 8 dashboards:
 1. **Security Overview** - Executive security posture summary
 2. **Traffic Analysis** - Deep-dive with Sankey diagrams
 3. **Threat Detection** - IDS/Suricata alert analysis
@@ -35,6 +36,7 @@ This app provides 7 dashboards:
 5. **Egress Monitoring** - FQDN/L7 egress visibility
 6. **Gateway Health** - Infrastructure monitoring
 7. **Audit Trail** - Controller change tracking
+8. **VPN Sessions** - User VPN connections, users, data and client locations
 
 ---
 

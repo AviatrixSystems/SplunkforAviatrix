@@ -5,7 +5,7 @@
     "id": {
       "group": null,
       "name": "aviatrix-security",
-      "version": "2.0.1"
+      "version": "2.1.0"
     },
     "author": [
       {
@@ -33,7 +33,7 @@
       "uri": null
     },
     "releaseNotes": {
-      "name": "Version 2.0.1",
+      "name": "Version 2.1.0",
       "text": "RELEASE_NOTES.md",
       "uri": null
     }

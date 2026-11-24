@@ -4,6 +4,7 @@
     <view name="traffic_analysis" />
     <view name="threat_detection" />
     <view name="policy_enforcement" />
+    <view name="vpn_sessions" />
   </collection>
   <collection label="Operations">
     <view name="gateway_health" />

@@ -1,5 +1,15 @@
 # Aviatrix Add-on for Splunk - Release Notes
 
+## Version 2.1.0
+
+- **New sourcetype `aviatrix:vpn:session`** (Aviatrix User VPN connect/disconnect events from the SIEM connector).
+  - CIM **Network Sessions**: every event is tagged `network`, `session`, `vpn`, plus `start` on connect and `end` on disconnect.
+  - CIM **Authentication**: connect events are tagged `authentication` with `action=success`.
+  - `action` is `success` on connect and `deleted` on disconnect. The raw status (`active`/`disconnected`) is in `vendor_action`.
+  - Fields: `user`, `src` (client public IP), `dest_ip` (VPN virtual IP), `dvc`/`dest` (gateway), `dvc_ip`, `app`, `signature`. Disconnects also carry `duration` (seconds, from `D:H:M:S`) and `bytes_in`/`bytes_out`/`bytes` (from values like `8.7KB` or `2.1 MB`).
+  - Fields are parsed from the `AviatrixVPNSession:` text, not the connector's pre-parsed fields (an empty gateway IP arrives as a `%{vpn_gateway_ip}` placeholder). The plain syslog line works with this sourcetype too.
+- New event types: `aviatrix_vpn_session`, `aviatrix_vpn_session_start`, `aviatrix_vpn_session_end`.
+
 ## Version 2.0.2
 
 **CIM fixes. Upgrade the Aviatrix Security app to 2.0.1 at the same time:** app 2.0.0 compares `action` to the raw vendor values and shows wrong counts with this add-on.
