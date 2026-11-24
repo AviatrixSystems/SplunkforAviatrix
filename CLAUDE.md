@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repository contains two Splunk apps for **Aviatrix Distributed Cloud Firewall** security visibility, TA 2.1.0 / app 2.1.0. Logs are ingested via HEC (HTTP Event Collector) with CIM-compliant field normalization.
+This repository contains two Splunk apps for **Aviatrix Distributed Cloud Firewall** security visibility, TA 2.2.0 / app 2.2.0. Logs are ingested via HEC (HTTP Event Collector) with CIM-compliant field normalization.
 
 ## Architecture
 
@@ -52,19 +52,21 @@ aviatrix-security/
 |---|---|
 | `aviatrix:firewall:l4` | DCF L4 micro-segmentation logs |
 | `aviatrix:firewall:l7` | DCF L7 TLS/SNI inspection logs |
-| `aviatrix:firewall:fqdn` | FQDN egress filtering logs |
+| `aviatrix:firewall:fqdn` | Legacy FQDN egress logs. **Deprecated in 2.2.0**: the TA still parses it, the app ignores it (DCF L4/L7 only). Removal planned for 3.0 |
 | `aviatrix:ids` | Suricata IDS alerts (EVE JSON) |
 | `aviatrix:gateway:network` | Gateway network statistics |
 | `aviatrix:gateway:system` | Gateway CPU/memory/disk statistics |
 | `aviatrix:controller:audit` | Controller API audit logs |
 | `aviatrix:vpn:session` | User VPN session connect/disconnect |
+| `aviatrix:tunnel:status` | Tunnel up/down changes |
 
 ### Key Macros (in aviatrix-security)
 
 - `aviatrix_index` -- base index filter (default: `index=main`)
+- `aviatrix_firewall` -- DCF traffic (L4 + L7; FQDN excluded as of 2.2.0)
 - `aviatrix_l4` -- L4 firewall events
 - `aviatrix_l7` -- L7 firewall events
-- `aviatrix_fqdn` -- FQDN egress events
+- `aviatrix_fqdn` -- legacy FQDN egress events (deprecated, unused by dashboards)
 - `aviatrix_ids` -- IDS/Suricata alerts
 - `aviatrix_audit` -- Controller audit logs
 - `aviatrix_vpn` -- User VPN session events; `aviatrix_vpn_fields` normalizes them (works with TA < 2.1.0)
@@ -91,6 +93,14 @@ For L4/L7, `action` is normalized to the CIM value with calculated fields (`EVAL
 - **Web UI**: http://18.219.247.244:8000/ (free license, no auth required)
 - **App upload**: Web UI at `/en-US/manager/appinstall/_upload` with "Upgrade app" checkbox
 - **Note**: Props.conf changes require Splunk restart to take effect
+
+### Dashboards (app 2.2.0+): generated Dashboard Studio
+- Views are **generated**: edit `tools/dashboards/build.py` (panels/SPL) and `tools/dashboards/studio.py` (layout, palette), then run `python3 tools/dashboards/build.py`. Don't hand-edit the view XML.
+- Grid layout (responsive). Palette: allowed `#3987e5`, would block `#fab219`, blocked `#d03b3b`; status colors always carry a text label.
+- Firewall panels read the `Aviatrix_Traffic` data model (`tools/dashboards/datamodel.py` generates `data/models/Aviatrix_Traffic.json`) via `tstats summariesonly=false`. Always pass `fillnull_value="-"` to `tstats ... by`, because tstats silently drops rows with a null by-field (`domain` is null for L4).
+- Acceleration must ship `acceleration = 0` (AppInspect cloud fails otherwise); users turn it on in the UI.
+- Count flows with `aviatrix_flows` (it excludes 8.2 session-end and L7 TLS-check events). Scan detection uses `flow_role=request`: L4 logs replies too, so servers look like scanners otherwise.
+- Smoke-test every panel search: `python3 tools/dashboards/test_searches.py --web http://host:8000 --earliest=-1y` (or `--url https://host:8089 --user ... --password ...`). EMPTY can be legitimate; ERROR is not.
 
 ### Building Packages
 ```bash

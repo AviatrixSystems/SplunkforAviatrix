@@ -1,312 +1,1021 @@
-<form version="1.1" theme="dark">
+<dashboard version="2" theme="dark">
   <label>Security Overview</label>
-  <description>Aviatrix Cloud Firewall security posture at a glance</description>
-
-  <fieldset submitButton="false" autoRun="true">
-    <input type="time" token="time" searchWhenChanged="true">
-      <label>Time Range</label>
-      <default>
-        <earliest>-24h@h</earliest>
-        <latest>now</latest>
-      </default>
-    </input>
-    <input type="dropdown" token="gateway" searchWhenChanged="true">
-      <label>Gateway</label>
-      <choice value="*">All Gateways</choice>
-      <default>*</default>
-      <initialValue>*</initialValue>
-      <fieldForLabel>gateway</fieldForLabel>
-      <fieldForValue>gateway</fieldForValue>
-      <search>
-        <query>`aviatrix_firewall` | stats count by host | rename host as gateway | sort gateway</query>
-        <earliest>$time.earliest$</earliest>
-        <latest>$time.latest$</latest>
-      </search>
-    </input>
-  </fieldset>
-
-  <!-- KPI Row -->
-  <row>
-    <panel>
-      <title>Total Events</title>
-      <single>
-        <search>
-          <query>`aviatrix_firewall` host=$gateway$ | stats count</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-          <refresh>5m</refresh>
-        </search>
-        <option name="colorMode">none</option>
-        <option name="drilldown">all</option>
-        <option name="numberPrecision">0</option>
-        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
-        <option name="useColors">0</option>
-        <option name="useThousandSeparators">1</option>
-        <drilldown>
-          <link target="_blank">/app/$env:app$/traffic_analysis?form.time.earliest=$time.earliest$&amp;form.time.latest=$time.latest$</link>
-        </drilldown>
-      </single>
-    </panel>
-    <panel>
-      <title>Blocked Sessions</title>
-      <single>
-        <search>
-          <query>`aviatrix_blocked` host=$gateway$ | stats count</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-          <refresh>5m</refresh>
-        </search>
-        <option name="colorMode">block</option>
-        <option name="drilldown">all</option>
-        <option name="numberPrecision">0</option>
-        <option name="rangeColors">["0x53a051","0xf8be34","0xdc4e41"]</option>
-        <option name="rangeValues">[100,1000]</option>
-        <option name="useColors">1</option>
-        <option name="useThousandSeparators">1</option>
-        <drilldown>
-          <link target="_blank">/app/$env:app$/traffic_analysis?form.time.earliest=$time.earliest$&amp;form.time.latest=$time.latest$&amp;form.action=blocked</link>
-        </drilldown>
-      </single>
-    </panel>
-    <panel>
-      <title>IDS Alerts</title>
-      <single>
-        <search>
-          <query>`aviatrix_ids_alerts` | stats count</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-          <refresh>5m</refresh>
-        </search>
-        <option name="colorMode">block</option>
-        <option name="drilldown">all</option>
-        <option name="numberPrecision">0</option>
-        <option name="rangeColors">["0x53a051","0xf8be34","0xf1813f","0xdc4e41"]</option>
-        <option name="rangeValues">[0,10,50]</option>
-        <option name="useColors">1</option>
-        <option name="useThousandSeparators">1</option>
-        <drilldown>
-          <link target="_blank">/app/$env:app$/threat_detection?form.time.earliest=$time.earliest$&amp;form.time.latest=$time.latest$</link>
-        </drilldown>
-      </single>
-    </panel>
-    <panel>
-      <title>Active Gateways</title>
-      <single>
-        <search>
-          <query>`aviatrix_gateway_network` | stats dc(gateway) as count</query>
-          <earliest>-15m</earliest>
-          <latest>now</latest>
-          <refresh>5m</refresh>
-        </search>
-        <option name="colorMode">none</option>
-        <option name="drilldown">all</option>
-        <option name="numberPrecision">0</option>
-        <option name="useColors">0</option>
-        <drilldown>
-          <link target="_blank">/app/$env:app$/gateway_health</link>
-        </drilldown>
-      </single>
-    </panel>
-  </row>
-
-  <!-- Threat Timeline -->
-  <row>
-    <panel>
-      <title>Security Events Over Time</title>
-      <chart>
-        <search>
-          <query>`aviatrix_firewall` host=$gateway$
-| eval act=`aviatrix_traffic_action`
-| eval event_type=case(
-    sourcetype=="aviatrix:firewall:l4" AND act=="blocked", "L4 Blocked",
-    sourcetype=="aviatrix:firewall:l4" AND act=="allowed", "L4 Allowed",
-    sourcetype=="aviatrix:firewall:l7" AND act=="blocked", "L7 Blocked",
-    sourcetype=="aviatrix:firewall:l7" AND act=="allowed", "L7 Allowed",
-    sourcetype=="aviatrix:firewall:fqdn" AND act=="allowed", "FQDN Allowed",
-    sourcetype=="aviatrix:firewall:fqdn" AND act=="blocked", "FQDN Blocked",
-    1=1, "Other"
-)
-| timechart count by event_type</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-          <refresh>5m</refresh>
-        </search>
-        <option name="charting.chart">area</option>
-        <option name="charting.chart.stackMode">stacked</option>
-        <option name="charting.drilldown">all</option>
-        <option name="charting.legend.placement">bottom</option>
-        <option name="charting.axisTitleX.visibility">collapsed</option>
-        <option name="charting.fieldColors">{"L4 Blocked": 0xDC4E41, "L7 Blocked": 0xF1813F, "FQDN Blocked": 0xF8BE34, "L4 Allowed": 0x53A051, "L7 Allowed": 0x0877A6, "FQDN Allowed": 0x6A5C9E}</option>
-        <option name="height">250</option>
-        <option name="refresh.display">progressbar</option>
-      </chart>
-    </panel>
-  </row>
-
-  <!-- Main Content Row -->
-  <row>
-    <panel>
-      <title>Top Blocked Destinations</title>
-      <table>
-        <search>
-          <query>`aviatrix_blocked` host=$gateway$
-| eval dest=coalesce(dst_ip, dest, dip)
-| eval hostname=coalesce(sni_hostname, hostname, dest)
-| stats count as "Block Count", dc(src_ip) as "Unique Sources", earliest(_time) as first_seen, latest(_time) as last_seen by dest, hostname
-| eval first_seen=strftime(first_seen, "%Y-%m-%d %H:%M:%S"), last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S")
-| sort - "Block Count"
-| head 10
-| table dest, hostname, "Block Count", "Unique Sources", first_seen, last_seen</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-          <refresh>5m</refresh>
-        </search>
-        <option name="count">10</option>
-        <option name="drilldown">row</option>
-        <option name="refresh.display">progressbar</option>
-        <format type="number" field="Block Count">
-          <option name="precision">0</option>
-        </format>
-        <format type="color" field="Block Count">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" midValue="50"></scale>
-        </format>
-        <drilldown>
-          <link target="_blank">/app/$env:app$/traffic_analysis?form.time.earliest=$time.earliest$&amp;form.time.latest=$time.latest$&amp;form.dest=$row.dest$</link>
-        </drilldown>
-      </table>
-    </panel>
-    <panel>
-      <title>Top IDS Signatures</title>
-      <chart>
-        <search>
-          <query>`aviatrix_ids_alerts`
-| stats count by signature
-| sort - count
-| head 10</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-          <refresh>5m</refresh>
-        </search>
-        <option name="charting.chart">bar</option>
-        <option name="charting.drilldown">all</option>
-        <option name="charting.legend.placement">none</option>
-        <option name="charting.axisTitleX.visibility">collapsed</option>
-        <option name="charting.axisTitleY.visibility">collapsed</option>
-        <option name="height">300</option>
-        <option name="refresh.display">progressbar</option>
-        <drilldown>
-          <link target="_blank">/app/$env:app$/threat_detection?form.time.earliest=$time.earliest$&amp;form.time.latest=$time.latest$&amp;form.signature=$click.value$</link>
-        </drilldown>
-      </chart>
-    </panel>
-  </row>
-
-  <!-- Bottom Row -->
-  <row>
-    <panel>
-      <title>Policy Enforcement Summary</title>
-      <chart>
-        <search>
-          <query>`aviatrix_l4` host=$gateway$
-| eval act=`aviatrix_traffic_action`
-| eval action_label=case(act=="allowed", "Allowed", act=="blocked", "Blocked", 1=1, "Other")
-| stats count by action_label</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-          <refresh>5m</refresh>
-        </search>
-        <option name="charting.chart">pie</option>
-        <option name="charting.drilldown">all</option>
-        <option name="charting.fieldColors">{"Allowed": 0x53A051, "Blocked": 0xDC4E41}</option>
-        <option name="height">250</option>
-        <option name="refresh.display">progressbar</option>
-        <drilldown>
-          <link target="_blank">/app/$env:app$/policy_enforcement?form.time.earliest=$time.earliest$&amp;form.time.latest=$time.latest$</link>
-        </drilldown>
-      </chart>
-    </panel>
-    <panel>
-      <title>Top Accessed Domains (L7/FQDN)</title>
-      <chart>
-        <search>
-          <query>`aviatrix_index` (sourcetype="aviatrix:firewall:l7" OR sourcetype="aviatrix:firewall:fqdn") host=$gateway$
-| eval domain=coalesce(sni_hostname, hostname)
-| where isnotnull(domain)
-| stats count by domain
-| sort - count
-| head 10</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-          <refresh>5m</refresh>
-        </search>
-        <option name="charting.chart">bar</option>
-        <option name="charting.drilldown">all</option>
-        <option name="charting.legend.placement">none</option>
-        <option name="charting.axisTitleX.visibility">collapsed</option>
-        <option name="charting.axisTitleY.visibility">collapsed</option>
-        <option name="height">250</option>
-        <option name="refresh.display">progressbar</option>
-        <drilldown>
-          <link target="_blank">/app/$env:app$/policy_enforcement?form.time.earliest=$time.earliest$&amp;form.time.latest=$time.latest$&amp;form.domain_filter=$click.value$</link>
-        </drilldown>
-      </chart>
-    </panel>
-    <panel>
-      <title>Gateway Block Rate</title>
-      <table>
-        <search>
-          <query>`aviatrix_l4`
-| eval blocked=if(`aviatrix_traffic_action`=="blocked", 1, 0)
-| stats sum(blocked) as blocked, count as total by host
-| eval block_rate=round(blocked/total*100, 1)
-| sort - block_rate
-| rename host as Gateway, blocked as "Blocked", total as "Total", block_rate as "Block Rate %"
-| table Gateway, Total, Blocked, "Block Rate %"</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-          <refresh>5m</refresh>
-        </search>
-        <option name="count">5</option>
-        <option name="drilldown">row</option>
-        <option name="refresh.display">progressbar</option>
-        <format type="color" field="Block Rate %">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#53A051"></colorPalette>
-          <scale type="minMidMax" minValue="0" midValue="10" maxValue="50"></scale>
-        </format>
-        <drilldown>
-          <link target="_blank">/app/$env:app$/traffic_analysis?form.time.earliest=$time.earliest$&amp;form.time.latest=$time.latest$&amp;form.gateway=$row.Gateway$</link>
-        </drilldown>
-      </table>
-    </panel>
-  </row>
-
-  <!-- Recent Activity -->
-  <row>
-    <panel>
-      <title>Recent Blocked Traffic (Last 50)</title>
-      <table>
-        <search>
-          <query>`aviatrix_blocked` host=$gateway$
-| eval src=coalesce(src_ip, src, sip)
-| eval dest=coalesce(dst_ip, dest, dip)
-| eval port=coalesce(dst_port, dest_port)
-| eval hostname=coalesce(sni_hostname, hostname, "-")
-| table _time, host, src, dest, port, proto, hostname
-| rename host as Gateway
-| head 50</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-          <refresh>5m</refresh>
-        </search>
-        <option name="count">10</option>
-        <option name="drilldown">row</option>
-        <option name="refresh.display">progressbar</option>
-        <option name="wrap">false</option>
-        <drilldown>
-          <link target="_blank">/app/$env:app$/search?q=search%20%60aviatrix_firewall%60%20src%3D$row.src$%20dest%3D$row.dest$&amp;earliest=$time.earliest$&amp;latest=$time.latest$</link>
-        </drilldown>
-      </table>
-    </panel>
-  </row>
-</form>
+  <description>Aviatrix Cloud Firewall posture at a glance: traffic outcomes, threats, risky changes and remote access, with notable activity to triage first.</description>
+  <definition><![CDATA[
+{
+  "title": "Security Overview",
+  "description": "Aviatrix Cloud Firewall posture at a glance: traffic outcomes, threats, risky changes and remote access, with notable activity to triage first.",
+  "inputs": {
+    "input_time": {
+      "type": "input.timerange",
+      "title": "Time range",
+      "options": {
+        "token": "time",
+        "defaultValue": "-24h@h,now"
+      }
+    },
+    "input_gateway": {
+      "type": "input.dropdown",
+      "title": "Gateway",
+      "dataSources": {
+        "primary": "ds_input_gateway"
+      },
+      "options": {
+        "token": "gateway",
+        "defaultValue": "*",
+        "items": ">frame(label, value) | prepend(formattedStatics) | objects()"
+      },
+      "encoding": {
+        "label": "primary[0]",
+        "value": "primary[1]"
+      },
+      "context": {
+        "formattedConfig": {
+          "number": {
+            "prefix": ""
+          }
+        },
+        "formattedStatics": ">statics | formatByType(formattedConfig)",
+        "statics": [
+          [
+            "All gateways"
+          ],
+          [
+            "*"
+          ]
+        ],
+        "label": ">primary | seriesByName(\"label\") | renameSeries(\"label\") | formatByType(formattedConfig)",
+        "value": ">primary | seriesByName(\"value\") | renameSeries(\"value\") | formatByType(formattedConfig)"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$time.earliest$",
+            "latest": "$time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "visualizations": {
+    "viz_section_9": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "#### POSTURE\nTotals for the selected range. Flows count each connection once (session-end and TLS-check records excluded).",
+        "fontColor": "#c3c2b7",
+        "fontSize": "custom",
+        "customFontSize": 13,
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_16": {
+      "type": "splunk.singlevalue",
+      "title": "Firewall flows",
+      "dataSources": {
+        "primary": "ds_10"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#3987e5",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      },
+      "eventHandlers": [
+        {
+          "type": "drilldown.linkToDashboard",
+          "options": {
+            "app": "aviatrix-security",
+            "dashboard": "traffic_analysis",
+            "tokens": [
+              {
+                "token": "time.earliest",
+                "value": "$time.earliest$"
+              },
+              {
+                "token": "time.latest",
+                "value": "$time.latest$"
+              }
+            ],
+            "newTab": false
+          }
+        }
+      ]
+    },
+    "viz_17": {
+      "type": "splunk.singlevalue",
+      "title": "Blocked",
+      "dataSources": {
+        "primary": "ds_11"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#d03b3b",
+        "majorColor": "> majorValue | rangeValue(alertColors)",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      },
+      "context": {
+        "alertColors": [
+          {
+            "to": 1,
+            "value": "#f0efec"
+          },
+          {
+            "from": 1,
+            "value": "#d03b3b"
+          }
+        ]
+      },
+      "description": "Dropped by enforced rules",
+      "eventHandlers": [
+        {
+          "type": "drilldown.linkToDashboard",
+          "options": {
+            "app": "aviatrix-security",
+            "dashboard": "traffic_analysis",
+            "tokens": [
+              {
+                "token": "action",
+                "value": "blocked"
+              },
+              {
+                "token": "time.earliest",
+                "value": "$time.earliest$"
+              },
+              {
+                "token": "time.latest",
+                "value": "$time.latest$"
+              }
+            ],
+            "newTab": false
+          }
+        }
+      ]
+    },
+    "viz_18": {
+      "type": "splunk.singlevalue",
+      "title": "Would block",
+      "dataSources": {
+        "primary": "ds_12"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#fab219",
+        "majorColor": "> majorValue | rangeValue(alertColors)",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      },
+      "context": {
+        "alertColors": [
+          {
+            "to": 1,
+            "value": "#f0efec"
+          },
+          {
+            "from": 1,
+            "value": "#fab219"
+          }
+        ]
+      },
+      "description": "Deny rules in monitor mode: logged, not dropped",
+      "eventHandlers": [
+        {
+          "type": "drilldown.linkToDashboard",
+          "options": {
+            "app": "aviatrix-security",
+            "dashboard": "traffic_analysis",
+            "tokens": [
+              {
+                "token": "action",
+                "value": "monitor"
+              },
+              {
+                "token": "time.earliest",
+                "value": "$time.earliest$"
+              },
+              {
+                "token": "time.latest",
+                "value": "$time.latest$"
+              }
+            ],
+            "newTab": false
+          }
+        }
+      ]
+    },
+    "viz_19": {
+      "type": "splunk.singlevalue",
+      "title": "Threat alerts",
+      "dataSources": {
+        "primary": "ds_13"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#ec835a",
+        "majorColor": "> majorValue | rangeValue(alertColors)",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      },
+      "context": {
+        "alertColors": [
+          {
+            "to": 1,
+            "value": "#f0efec"
+          },
+          {
+            "from": 1,
+            "value": "#ec835a"
+          }
+        ]
+      },
+      "description": "Suricata IDS + L7 inline IPS",
+      "eventHandlers": [
+        {
+          "type": "drilldown.linkToDashboard",
+          "options": {
+            "app": "aviatrix-security",
+            "dashboard": "threat_detection",
+            "tokens": [
+              {
+                "token": "time.earliest",
+                "value": "$time.earliest$"
+              },
+              {
+                "token": "time.latest",
+                "value": "$time.latest$"
+              }
+            ],
+            "newTab": false
+          }
+        }
+      ]
+    },
+    "viz_20": {
+      "type": "splunk.singlevalue",
+      "title": "Config changes",
+      "dataSources": {
+        "primary": "ds_14"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#3987e5",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      },
+      "description": "Controller create, modify, delete",
+      "eventHandlers": [
+        {
+          "type": "drilldown.linkToDashboard",
+          "options": {
+            "app": "aviatrix-security",
+            "dashboard": "audit_trail",
+            "tokens": [
+              {
+                "token": "time.earliest",
+                "value": "$time.earliest$"
+              },
+              {
+                "token": "time.latest",
+                "value": "$time.latest$"
+              }
+            ],
+            "newTab": false
+          }
+        }
+      ]
+    },
+    "viz_21": {
+      "type": "splunk.singlevalue",
+      "title": "VPN sessions",
+      "dataSources": {
+        "primary": "ds_15"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#3987e5",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      },
+      "description": "User VPN connects",
+      "eventHandlers": [
+        {
+          "type": "drilldown.linkToDashboard",
+          "options": {
+            "app": "aviatrix-security",
+            "dashboard": "vpn_sessions",
+            "tokens": [
+              {
+                "token": "time.earliest",
+                "value": "$time.earliest$"
+              },
+              {
+                "token": "time.latest",
+                "value": "$time.latest$"
+              }
+            ],
+            "newTab": false
+          }
+        }
+      ]
+    },
+    "viz_23": {
+      "type": "splunk.area",
+      "title": "Firewall outcomes over time",
+      "dataSources": {
+        "primary": "ds_fw_time"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "legendDisplay": "bottom",
+        "xAxisTitleVisibility": "hide",
+        "seriesColors": [
+          "#3987e5",
+          "#d95926",
+          "#199e70",
+          "#c98500",
+          "#d55181",
+          "#0ca30c",
+          "#9085e9",
+          "#e66767"
+        ],
+        "yAxisTitleText": "flows",
+        "seriesColorsByField": {
+          "Allowed": "#3987e5",
+          "Would block": "#fab219",
+          "Blocked": "#d03b3b"
+        },
+        "stackMode": "stacked",
+        "areaFillOpacity": 0.55
+      }
+    },
+    "viz_24": {
+      "type": "splunk.column",
+      "title": "Threat alerts by severity",
+      "dataSources": {
+        "primary": "ds_22"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "legendDisplay": "bottom",
+        "xAxisTitleVisibility": "hide",
+        "seriesColors": [
+          "#3987e5",
+          "#d95926",
+          "#199e70",
+          "#c98500",
+          "#d55181",
+          "#0ca30c",
+          "#9085e9",
+          "#e66767"
+        ],
+        "yAxisTitleVisibility": "hide",
+        "seriesColorsByField": {
+          "Critical": "#d03b3b",
+          "High": "#ec835a",
+          "Medium": "#fab219",
+          "Low": "#3987e5",
+          "Info": "#6b6f76"
+        },
+        "stackMode": "stacked"
+      }
+    },
+    "viz_section_25": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "#### NOTABLE ACTIVITY\nDetections across all Aviatrix sources, most severe first. Click a row to investigate.",
+        "fontColor": "#c3c2b7",
+        "fontSize": "custom",
+        "customFontSize": 13,
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_27": {
+      "type": "splunk.table",
+      "title": "Notable activity",
+      "dataSources": {
+        "primary": "ds_notable"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 10,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small",
+        "columnFormat": {
+          "Severity": {
+            "rowColors": "> table | seriesByName(\"Severity\") | matchValue(colors0)",
+            "width": 80
+          },
+          "Detection": {
+            "width": 230
+          },
+          "Entity": {
+            "width": 260
+          },
+          "Evidence": {
+            "width": 380
+          },
+          "Events": {
+            "width": 80
+          }
+        }
+      },
+      "context": {
+        "colors0": [
+          {
+            "match": "Allowed",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Would block",
+            "value": "#fab219"
+          },
+          {
+            "match": "Blocked",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Critical",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "High",
+            "value": "#f4a27f"
+          },
+          {
+            "match": "Medium",
+            "value": "#fab219"
+          },
+          {
+            "match": "Low",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Info",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Healthy",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Warning",
+            "value": "#fab219"
+          },
+          {
+            "match": "Silent",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Up",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Down",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Detected",
+            "value": "#fab219"
+          },
+          {
+            "match": "success",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "failure",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "created",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "modified",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "deleted",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "read",
+            "value": "#898781"
+          },
+          {
+            "match": "active",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "disconnected",
+            "value": "#898781"
+          }
+        ]
+      },
+      "eventHandlers": [
+        {
+          "type": "drilldown.customUrl",
+          "options": {
+            "url": "/app/aviatrix-security/$row._view.value$?$row._param.value$=$row.Entity.value|u$&form.time.earliest=$time.earliest|u$&form.time.latest=$time.latest|u$",
+            "newTab": false
+          }
+        }
+      ]
+    },
+    "viz_section_28": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "#### WHERE TRAFFIC IS STOPPED",
+        "fontColor": "#c3c2b7",
+        "fontSize": "custom",
+        "customFontSize": 13,
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_31": {
+      "type": "splunk.table",
+      "title": "Top blocked and would-block destinations",
+      "dataSources": {
+        "primary": "ds_29"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 8,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small"
+      },
+      "eventHandlers": [
+        {
+          "type": "drilldown.linkToDashboard",
+          "options": {
+            "app": "aviatrix-security",
+            "dashboard": "traffic_analysis",
+            "tokens": [
+              {
+                "token": "dest",
+                "value": "$row.Destination.value$"
+              },
+              {
+                "token": "time.earliest",
+                "value": "$time.earliest$"
+              },
+              {
+                "token": "time.latest",
+                "value": "$time.latest$"
+              }
+            ],
+            "newTab": false
+          }
+        }
+      ]
+    },
+    "viz_32": {
+      "type": "splunk.bar",
+      "title": "Top L7 domains (SNI) by outcome",
+      "dataSources": {
+        "primary": "ds_30"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "legendDisplay": "bottom",
+        "xAxisTitleVisibility": "hide",
+        "seriesColors": [
+          "#3987e5",
+          "#d95926",
+          "#199e70",
+          "#c98500",
+          "#d55181",
+          "#0ca30c",
+          "#9085e9",
+          "#e66767"
+        ],
+        "yAxisTitleVisibility": "hide",
+        "seriesColorsByField": {
+          "Allowed": "#3987e5",
+          "Would block": "#fab219",
+          "Blocked": "#d03b3b"
+        },
+        "stackMode": "stacked"
+      }
+    },
+    "viz_section_33": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "#### GATEWAY ENFORCEMENT POSTURE\nMonitor % = deny verdicts not enforced. Default rule % = flows matched by no explicit policy, only the DCF default rule. Both are policy rollout gaps.",
+        "fontColor": "#c3c2b7",
+        "fontSize": "custom",
+        "customFontSize": 13,
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_35": {
+      "type": "splunk.table",
+      "title": "Gateways",
+      "dataSources": {
+        "primary": "ds_34"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 8,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small"
+      },
+      "eventHandlers": [
+        {
+          "type": "drilldown.linkToDashboard",
+          "options": {
+            "app": "aviatrix-security",
+            "dashboard": "traffic_analysis",
+            "tokens": [
+              {
+                "token": "gateway",
+                "value": "$row.Gateway.value$"
+              },
+              {
+                "token": "time.earliest",
+                "value": "$time.earliest$"
+              },
+              {
+                "token": "time.latest",
+                "value": "$time.latest$"
+              }
+            ],
+            "newTab": false
+          }
+        }
+      ]
+    }
+  },
+  "dataSources": {
+    "ds_input_gateway": {
+      "type": "ds.search",
+      "name": "ds_input_gateway",
+      "options": {
+        "query": "| tstats count where `aviatrix_index` (sourcetype=\"aviatrix:firewall:l4\" OR sourcetype=\"aviatrix:firewall:l7\") by host\n| sort - count | head 300\n| eval label=host, value=host | fields label value",
+        "queryParameters": {
+          "earliest": "$time.earliest$",
+          "latest": "$time.latest$"
+        }
+      }
+    },
+    "ds_fw_time": {
+      "type": "ds.search",
+      "name": "ds_fw_time",
+      "options": {
+        "query": "| tstats summariesonly=false prestats=t count from datamodel=Aviatrix_Traffic.Flows where host=$gateway$ by _time Flows.outcome\n| timechart count by Flows.outcome"
+      }
+    },
+    "ds_fw_dest": {
+      "type": "ds.search",
+      "name": "ds_fw_dest",
+      "options": {
+        "query": "| tstats summariesonly=false fillnull_value=\"-\" count dc(Flows.src) as sources values(host) as gateways max(_time) as last from datamodel=Aviatrix_Traffic.Flows where host=$gateway$ Flows.outcome!=Allowed by Flows.dest Flows.domain Flows.outcome\n| rename Flows.* as *"
+      }
+    },
+    "ds_fw_domains": {
+      "type": "ds.search",
+      "name": "ds_fw_domains",
+      "options": {
+        "query": "| tstats summariesonly=false fillnull_value=\"-\" count from datamodel=Aviatrix_Traffic.Flows where host=$gateway$ Flows.log_type!=l4 by Flows.domain Flows.outcome\n| rename Flows.* as *"
+      }
+    },
+    "ds_fw_gateways": {
+      "type": "ds.search",
+      "name": "ds_fw_gateways",
+      "options": {
+        "query": "| tstats summariesonly=false fillnull_value=\"-\" count max(_time) as last from datamodel=Aviatrix_Traffic.Flows where host=$gateway$ by host Flows.outcome Flows.rule\n| rename Flows.* as *"
+      }
+    },
+    "ds_threat_time": {
+      "type": "ds.search",
+      "name": "ds_threat_time",
+      "options": {
+        "query": "`aviatrix_threats` host=$gateway$\n| `aviatrix_threat_fields`\n| bin _time bins=100\n| stats count by _time sev_label threat_outcome"
+      }
+    },
+    "ds_audit_time": {
+      "type": "ds.search",
+      "name": "ds_audit_time",
+      "options": {
+        "query": "`aviatrix_audit`\n| `aviatrix_audit_fields`\n| where change_action!=\"read\"\n| bin _time bins=100\n| stats count by _time"
+      }
+    },
+    "ds_vpn_time": {
+      "type": "ds.search",
+      "name": "ds_vpn_time",
+      "options": {
+        "query": "`aviatrix_vpn`\n| `aviatrix_vpn_fields`\n| where vpn_status=\"active\"\n| bin _time bins=100\n| stats count by _time"
+      }
+    },
+    "ds_10": {
+      "type": "ds.chain",
+      "name": "ds_10",
+      "options": {
+        "extend": "ds_fw_time",
+        "query": "| eval value=coalesce(Allowed, 0)+coalesce(Blocked, 0)+coalesce('Would block', 0)\n| fields _time value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_11": {
+      "type": "ds.chain",
+      "name": "ds_11",
+      "options": {
+        "extend": "ds_fw_time",
+        "query": "| eval value=coalesce(Blocked, 0)\n| fields _time value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_12": {
+      "type": "ds.chain",
+      "name": "ds_12",
+      "options": {
+        "extend": "ds_fw_time",
+        "query": "| eval value=coalesce('Would block', 0)\n| fields _time value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_13": {
+      "type": "ds.chain",
+      "name": "ds_13",
+      "options": {
+        "extend": "ds_threat_time",
+        "query": "| timechart sum(count) as value\n| fillnull value=0 value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_14": {
+      "type": "ds.chain",
+      "name": "ds_14",
+      "options": {
+        "extend": "ds_audit_time",
+        "query": "| timechart sum(count) as value\n| fillnull value=0 value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_15": {
+      "type": "ds.chain",
+      "name": "ds_15",
+      "options": {
+        "extend": "ds_vpn_time",
+        "query": "| timechart sum(count) as value\n| fillnull value=0 value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_22": {
+      "type": "ds.chain",
+      "name": "ds_22",
+      "options": {
+        "extend": "ds_threat_time",
+        "query": "| timechart sum(count) by sev_label"
+      }
+    },
+    "ds_notable": {
+      "type": "ds.search",
+      "name": "ds_notable",
+      "options": {
+        "query": "| tstats summariesonly=false count min(_time) as first max(_time) as last values(host) as gw values(Flows.dest) as dests from datamodel=Aviatrix_Traffic.Flows where host=$gateway$ Flows.log_type=l4 Flows.flow_role=request by Flows.src Flows.port\n| rename Flows.src as src, Flows.port as port\n| eval probe_port=port\n| stats sum(count) as count min(first) as first max(last) as last values(gw) as gw dc(probe_port) as ports dc(dests) as hosts by src\n| where ports>=100 OR hosts>=100\n| join type=left src [| tstats summariesonly=false count as denied from datamodel=Aviatrix_Traffic.Flows where host=$gateway$ Flows.log_type=l4 Flows.outcome!=Allowed by Flows.src | rename Flows.src as src]\n| eval denied=coalesce(denied, 0), severity=if(denied/count>0.5, \"High\", \"Medium\"), detection=if(ports>=hosts, \"Port scan\", \"Host sweep\"), entity=src, evidence=ports.\" ports on \".hosts.\" hosts, \".round(denied/count*100).\"% denied\", _view=\"traffic_analysis\", _param=\"form.src\"\n| append [| tstats summariesonly=false fillnull_value=\"-\" count min(_time) as first max(_time) as last dc(Flows.src) as srcs values(host) as gw from datamodel=Aviatrix_Traffic.Flows where host=$gateway$ Flows.outcome=\"Would block\" Flows.direction=Egress by Flows.domain Flows.dest\n    | eval entity=if('Flows.domain'==\"-\", 'Flows.dest', 'Flows.domain')\n    | stats sum(count) as count min(first) as first max(last) as last max(srcs) as srcs values(gw) as gw by entity\n    | sort - count | head 5\n    | eval severity=\"Medium\", detection=\"Egress allowed only by monitor mode\", evidence=srcs.\" internal sources; a deny rule matched but is not enforced\", _view=\"traffic_analysis\", _param=\"form.dest\" ]\n| append [| tstats summariesonly=false count min(_time) as first max(_time) as last dc(Flows.src) as srcs values(host) as gw values(Flows.port) as ports from datamodel=Aviatrix_Traffic.Flows where host=$gateway$ Flows.direction=Ingress Flows.outcome=Allowed Flows.flow_role=request Flows.rule=\"defa11a1-0000-0000-0000-000000000000\" by Flows.dest\n    | rename Flows.dest as entity\n    | eval sensitive=mvfilter(match(ports, \"^(21|22|23|25|110|135|139|143|445|1433|1521|2375|2379|3306|3389|5432|5601|5900|6379|6443|8080|9092|9200|10250|11211|27017)$\"))\n    | eval severity=if(mvcount(sensitive)>0, \"High\", \"Medium\"), detection=\"Internet ingress allowed by default rule\", evidence=srcs.\" external sources on ports \".mvjoin(mvindex(ports, 0, 5), \", \").if(mvcount(ports)>6, \", ...\", \"\").\": no explicit policy matched\", _view=\"traffic_analysis\", _param=\"form.dest\"\n    | sort - srcs | head 10 ]\n| append [ search `aviatrix_threats` host=$gateway$\n    | `aviatrix_threat_fields`\n    | where severity_id<=2\n    | stats count min(_time) as first max(_time) as last dc(internal_host) as hosts values(internal_host) as h values(host) as gw by signature sev_label threat_outcome\n    | eval severity=sev_label, detection=if(threat_outcome==\"Blocked\", \"Threat blocked\", \"Threat detected\"), entity=signature, evidence=hosts.\" internal hosts: \".mvjoin(mvindex(h, 0, 2), \", \").if(hosts>3, \", ...\", \"\"), _view=\"threat_detection\", _param=\"form.signature\" ]\n| append [ search `aviatrix_audit`\n    | `aviatrix_audit_fields` | `aviatrix_audit_risk`\n    | where isnotnull(audit_risk)\n    | stats count min(_time) as first max(_time) as last values(command) as cmds values(controller) as gw by audit_risk username\n    | eval severity=if(audit_risk==\"Logging change\", \"High\", \"Medium\"), detection=audit_risk, entity=username, evidence=count.\" changes: \".mvjoin(mvindex(cmds, 0, 1), \", \").if(mvcount(cmds)>2, \", ...\", \"\"), _view=\"audit_trail\", _param=\"form.user\" ]\n| append [ search `aviatrix_audit`\n    | `aviatrix_audit_fields`\n    | where result_status=\"failure\"\n    | stats count min(_time) as first max(_time) as last dc(command) as cmds values(controller) as gw by username\n    | where count>=25\n    | eval severity=\"Low\", detection=\"Repeated controller API failures\", entity=username, evidence=count.\" failed calls across \".cmds.\" commands\", _view=\"audit_trail\", _param=\"form.user\" ]\n| append [ search `aviatrix_vpn`\n    | `aviatrix_vpn_fields`\n    | where vpn_status=\"active\" AND isnotnull(src)\n    | iplocation src\n    | stats dc(Country) as countries values(Country) as c dc(src) as ips count min(_time) as first max(_time) as last values(dvc) as gw by user\n    | where countries>1\n    | eval severity=\"High\", detection=\"VPN logins from multiple countries\", entity=user, evidence=mvjoin(c, \", \").\" from \".ips.\" public IPs\", _view=\"vpn_sessions\", _param=\"form.user\" ]\n| append [ search `aviatrix_vpn`\n    | `aviatrix_vpn_fields`\n    | where vpn_status=\"disconnected\" AND bytes>1073741824\n    | stats count sum(bytes) as b min(_time) as first max(_time) as last values(dvc) as gw by user\n    | eval severity=\"Medium\", detection=\"Large VPN transfer\", entity=user, evidence=`aviatrix_bytes_format(b)`.\" in \".count.\" sessions over 1 GB\", _view=\"vpn_sessions\", _param=\"form.user\" ]\n| append [ search `aviatrix_tunnel`\n    | stats latest(new_state) as state count(eval(new_state=\"Down\")) as downs min(_time) as first max(_time) as last by src_gw dst_gw\n    | where downs>0\n    | eval severity=if(state==\"Down\", \"High\", \"Low\"), detection=if(state==\"Down\", \"Tunnel down\", \"Tunnel flapped\"), entity=replace(src_gw, \"\\(.*\", \"\").\" <> \".replace(dst_gw, \"\\(.*\", \"\"), evidence=downs.\" down events, now \".state, gw=replace(src_gw, \"\\(.*\", \"\"), _view=\"gateway_health\", _param=\"form.gateway\" ]\n| eval rank=case(severity==\"Critical\", 1, severity==\"High\", 2, severity==\"Medium\", 3, 1=1, 4)\n| sort 0 rank -last\n| eval First=strftime(first, \"%Y-%m-%d %H:%M\"), Last=strftime(last, \"%Y-%m-%d %H:%M\"), Where=mvjoin(mvindex(gw, 0, 1), \", \").if(mvcount(gw)>2, \" +\".(mvcount(gw)-2), \"\")\n| rename severity as Severity, detection as Detection, entity as Entity, evidence as Evidence, count as Events\n| table Severity Detection Entity Evidence Where Events First Last _view _param"
+      }
+    },
+    "ds_29": {
+      "type": "ds.chain",
+      "name": "ds_29",
+      "options": {
+        "extend": "ds_fw_dest",
+        "query": "| stats sum(eval(if(outcome==\"Blocked\", count, 0))) as Blocked sum(eval(if(outcome==\"Would block\", count, 0))) as wb max(sources) as Sources values(gateways) as gw max(last) as last by dest domain\n| eval Total=Blocked+wb, Domain=domain, Gateways=mvjoin(mvindex(gw, 0, 1), \", \").if(mvcount(gw)>2, \" +\".(mvcount(gw)-2), \"\"), \"Last seen\"=strftime(last, \"%Y-%m-%d %H:%M\")\n| sort - Total | head 50\n| rename dest as Destination, wb as \"Would block\"\n| table Destination Domain Blocked \"Would block\" Sources Gateways \"Last seen\""
+      }
+    },
+    "ds_30": {
+      "type": "ds.chain",
+      "name": "ds_30",
+      "options": {
+        "extend": "ds_fw_domains",
+        "query": "| where domain!=\"-\"\n| chart sum(count) over domain by outcome\n| addtotals fieldname=_total\n| sort - _total | head 12\n| fields - _total"
+      }
+    },
+    "ds_34": {
+      "type": "ds.chain",
+      "name": "ds_34",
+      "options": {
+        "extend": "ds_fw_gateways",
+        "query": "| stats sum(count) as Flows sum(eval(if(outcome==\"Blocked\", count, 0))) as Blocked sum(eval(if(outcome==\"Would block\", count, 0))) as wb sum(eval(if(rule==\"defa11a1-0000-0000-0000-000000000000\", count, 0))) as dflt max(last) as last by host\n| eval \"Block %\"=round(Blocked/Flows*100, 1), \"Monitor %\"=if(Blocked+wb>0, round(wb/(Blocked+wb)*100, 1), 0), \"Default rule %\"=round(dflt/Flows*100, 1), \"Last activity\"=strftime(last, \"%Y-%m-%d %H:%M\")\n| sort - Flows\n| rename host as Gateway, wb as \"Would block\"\n| table Gateway Flows Blocked \"Would block\" \"Block %\" \"Monitor %\" \"Default rule %\" \"Last activity\""
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "options": {
+      "width": 1440,
+      "height": 1802
+    },
+    "structure": [
+      {
+        "item": "viz_section_9",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "w": 1440,
+          "h": 76
+        }
+      },
+      {
+        "item": "viz_16",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 76,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_17",
+        "type": "block",
+        "position": {
+          "x": 240,
+          "y": 76,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_18",
+        "type": "block",
+        "position": {
+          "x": 480,
+          "y": 76,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_19",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 76,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_20",
+        "type": "block",
+        "position": {
+          "x": 960,
+          "y": 76,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_21",
+        "type": "block",
+        "position": {
+          "x": 1200,
+          "y": 76,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_23",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 226,
+          "w": 960,
+          "h": 290
+        }
+      },
+      {
+        "item": "viz_24",
+        "type": "block",
+        "position": {
+          "x": 960,
+          "y": 226,
+          "w": 480,
+          "h": 290
+        }
+      },
+      {
+        "item": "viz_section_25",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 516,
+          "w": 1440,
+          "h": 76
+        }
+      },
+      {
+        "item": "viz_27",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 592,
+          "w": 1440,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_section_28",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 992,
+          "w": 1440,
+          "h": 44
+        }
+      },
+      {
+        "item": "viz_31",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1036,
+          "w": 840,
+          "h": 360
+        }
+      },
+      {
+        "item": "viz_32",
+        "type": "block",
+        "position": {
+          "x": 840,
+          "y": 1036,
+          "w": 600,
+          "h": 360
+        }
+      },
+      {
+        "item": "viz_section_33",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1396,
+          "w": 1440,
+          "h": 76
+        }
+      },
+      {
+        "item": "viz_35",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1472,
+          "w": 1440,
+          "h": 330
+        }
+      }
+    ],
+    "globalInputs": [
+      "input_time",
+      "input_gateway"
+    ]
+  }
+}
+  ]]></definition>
+  <meta type="hiddenElements"><![CDATA[
+{"hideEdit": false, "hideOpenInSearch": false, "hideExport": false}
+  ]]></meta>
+</dashboard>

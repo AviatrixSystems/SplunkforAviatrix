@@ -18,7 +18,7 @@ This add-on provides:
 |------------|-------------|
 | `aviatrix:firewall:l4` | DCF L4 micro-segmentation logs |
 | `aviatrix:firewall:l7` | DCF L7 TLS/SNI inspection logs |
-| `aviatrix:firewall:fqdn` | FQDN egress filtering logs |
+| `aviatrix:firewall:fqdn` | FQDN egress filtering logs (**deprecated** in 2.2.0; parsed by the TA, not shown in the app) |
 | `aviatrix:ids` | Suricata IDS alerts (EVE JSON) |
 | `aviatrix:gateway:network` | Gateway network stats |
 | `aviatrix:gateway:system` | Gateway CPU/memory/disk stats |
@@ -33,7 +33,7 @@ This app provides 8 dashboards:
 2. **Traffic Analysis** - Deep-dive with Sankey diagrams
 3. **Threat Detection** - IDS/Suricata alert analysis
 4. **Policy Enforcement** - DCF policy effectiveness
-5. **Egress Monitoring** - FQDN/L7 egress visibility
+5. **L7 Firewall Activity** - L7 (TLS/SNI) egress visibility
 6. **Gateway Health** - Infrastructure monitoring
 7. **Audit Trail** - Controller change tracking
 8. **VPN Sessions** - User VPN connections, users, data and client locations

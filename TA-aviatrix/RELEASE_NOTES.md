@@ -1,5 +1,16 @@
 # Aviatrix Add-on for Splunk - Release Notes
 
+## Version 2.2.0
+
+- **Deprecated: legacy FQDN egress filter logs (`aviatrix:firewall:fqdn`).** Aviatrix security analytics now focus on the Distributed Cloud Firewall (L4 micro-segmentation + L7). The TA still parses the sourcetype, and its `aviatrix_fqdn` event type keeps its CIM tags, so existing searches and Enterprise Security data models work. It is no longer part of `aviatrix_firewall_traffic`, `aviatrix_traffic_allowed` or `aviatrix_traffic_blocked`. Removal is planned for 3.0; move egress controls to DCF L7 (SNI) policies.
+- **New sourcetype support: `aviatrix:tunnel:status`** (tunnel up/down changes). Fields: `dvc`/`src_gw_name`, `dest`/`dst_gw_name`, `src_cloud`/`src_region`, `dst_cloud`/`dst_region`, `tunnel`, `status` (`up`/`down`). New event types `aviatrix_tunnel_status` and `aviatrix_tunnel_down`.
+- **L4**: New `policy_mode` (`enforced`/`monitor`) and `session_phase` (`start`/`end`/`none`) so searches can count each 8.2+ flow once (start and end are separate events). `session_end_reason` is looked up into `session_end_description`. Unresolved `%{session_*}` placeholders are nulled.
+- **L7**: `transport` is lowercase (gateways send both `TCP` and `tcp`). New `policy_mode`, `signature_id` (from the 8.2 inline-IPS `sid`), and `l7_event_class`, which separates policy verdicts from inline IPS drops, IDS alerts, IDS-unavailable timeouts, TLS inspection checks and SYN-only timeouts. New event type `aviatrix_l7_threat`.
+- **IDS**: MITRE ATT&CK fields from ET rule metadata: `mitre_tactic`, `mitre_tactic_id`, `mitre_technique`, `mitre_technique_id`, plus `signature_severity`. `app` (from `app_proto`) and `tls_sni`.
+- **FQDN**: A hostname that matched a deny (blacklist) rule logs `state=MATCHED` with `drop_reason=BLACKLISTED` and was reported as `action=allowed`. `action` now uses `drop_reason`, which is parsed from the syslog text with `fqdn_rule`; `vendor_action` holds the drop reason or state.
+- **Gateway stats**: `%{alias}`, `%{public_ip}` and `%{conntrack_*}` placeholders (controller events, FireNet interfaces) are nulled. `dvc_ip` no longer carries the placeholder. New `cpu_core_count` and `cpu_busy_max`.
+- **Controller audit**: Some connector releases send `host` as a literal `%{gw_hostname}`. `dvc`/`dest` now come from the controller name in the syslog text. New `error_code` and `error_message` from failed V2.5 API calls (for example `AVXERR-DFW-0043`).
+
 ## Version 2.1.0
 
 - **New sourcetype `aviatrix:vpn:session`** (Aviatrix User VPN connect/disconnect events from the SIEM connector).

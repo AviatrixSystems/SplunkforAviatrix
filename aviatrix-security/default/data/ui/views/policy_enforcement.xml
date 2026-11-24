@@ -1,378 +1,1061 @@
-<form version="1.1" theme="dark">
+<dashboard version="2" theme="dark">
   <label>L7 Firewall Activity</label>
-  <description>Distributed Cloud Firewall L7 policy verdicts, domain analysis, and threat investigation. Verdicts include denies from rules in monitor mode (not enforced); use Enforcement Mode to separate them.</description>
-
-  <fieldset submitButton="true" autoRun="true">
-    <input type="time" token="time" searchWhenChanged="true">
-      <label>Time Range</label>
-      <default>
-        <earliest>-24h@h</earliest>
-        <latest>now</latest>
-      </default>
-    </input>
-    <input type="dropdown" token="gateway" searchWhenChanged="true">
-      <label>Gateway</label>
-      <choice value="*">All Gateways</choice>
-      <default>*</default>
-      <fieldForLabel>gateway</fieldForLabel>
-      <fieldForValue>gateway</fieldForValue>
-      <search>
-        <query>`aviatrix_l7` | stats count by host | rename host as gateway | sort gateway</query>
-        <earliest>$time.earliest$</earliest>
-        <latest>$time.latest$</latest>
-      </search>
-    </input>
-    <input type="dropdown" token="action" searchWhenChanged="true">
-      <label>Policy Verdict</label>
-      <choice value="*">All</choice>
-      <choice value="allowed">Permit</choice>
-      <choice value="blocked">Deny</choice>
-      <default>*</default>
-    </input>
-    <input type="dropdown" token="enforced" searchWhenChanged="true">
-      <label>Enforcement Mode</label>
-      <choice value="*">All</choice>
-      <choice value="true">Enforced</choice>
-      <choice value="false">Monitor Only</choice>
-      <default>*</default>
-    </input>
-    <input type="text" token="domain_filter" searchWhenChanged="false">
-      <label>Domain Filter</label>
-      <default>*</default>
-    </input>
-  </fieldset>
-
-  <!-- KPI Row -->
-  <row>
-    <panel>
-      <title>Total Policy Hits</title>
-      <single>
-        <search>
-          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
-| stats count</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="drilldown">none</option>
-        <option name="useThousandSeparators">1</option>
-      </single>
-    </panel>
-    <panel>
-      <title>Deny Verdicts</title>
-      <single>
-        <search>
-          <query>`aviatrix_l7` host=$gateway$ action_cim=blocked enforced=$enforced$
-| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
-| stats count</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="drilldown">all</option>
-        <option name="useThousandSeparators">1</option>
-        <option name="colorMode">block</option>
-        <option name="rangeColors">["0x53a051","0xf8be34","0xdc4e41"]</option>
-        <option name="rangeValues">[10,100]</option>
-        <option name="useColors">1</option>
-        <drilldown>
-          <set token="form.action">blocked</set>
-        </drilldown>
-      </single>
-    </panel>
-    <panel>
-      <title>Unique Domains</title>
-      <single>
-        <search>
-          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
-| stats dc(sni_hostname)</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="drilldown">none</option>
-      </single>
-    </panel>
-    <panel>
-      <title>Unique Sources</title>
-      <single>
-        <search>
-          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
-| stats dc(src_ip)</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="drilldown">none</option>
-      </single>
-    </panel>
-    <panel>
-      <title>Unique Policies</title>
-      <single>
-        <search>
-          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
-| stats dc(decided_by)</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="drilldown">none</option>
-      </single>
-    </panel>
-  </row>
-
-  <!-- Trends & Traffic Context -->
-  <row>
-    <panel>
-      <title>Policy Activity Over Time</title>
-      <chart>
-        <search>
-          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
-| eval action_label=if(action_cim=="allowed", "Allowed", "Blocked")
-| timechart count by action_label</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="charting.chart">area</option>
-        <option name="charting.chart.stackMode">stacked</option>
-        <option name="charting.drilldown">none</option>
-        <option name="charting.legend.placement">bottom</option>
-        <option name="charting.fieldColors">{"Allowed": 0x53A051, "Blocked": 0xDC4E41}</option>
-        <option name="height">250</option>
-      </chart>
-    </panel>
-    <panel>
-      <title>Traffic Direction</title>
-      <chart>
-        <search>
-          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
-| eval direction=case(
-    match(src_ip, "^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\.|^192\.168\.|^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.") AND match(dest_ip, "^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\.|^192\.168\.|^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\."), "East-West",
-    match(src_ip, "^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\.|^192\.168\.|^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\."), "Egress",
-    1=1, "Ingress"
-)
-| stats count by direction</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="charting.chart">pie</option>
-        <option name="charting.drilldown">none</option>
-        <option name="charting.fieldColors">{"East-West": 0x0877A6, "Egress": 0x53A051, "Ingress": 0xF8BE34}</option>
-        <option name="height">250</option>
-      </chart>
-    </panel>
-    <panel>
-      <title>Enforced vs Monitor Mode</title>
-      <chart>
-        <search>
-          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$
-| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
-| eval mode=if(enforced=="true", "Enforced", "Monitor")
-| stats count by mode</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="charting.chart">pie</option>
-        <option name="charting.drilldown">all</option>
-        <option name="charting.fieldColors">{"Enforced": 0x53A051, "Monitor": 0xF8BE34}</option>
-        <option name="height">250</option>
-        <drilldown>
-          <condition match="$click.value$ == &quot;Enforced&quot;">
-            <set token="form.enforced">true</set>
-          </condition>
-          <condition match="$click.value$ == &quot;Monitor&quot;">
-            <set token="form.enforced">false</set>
-          </condition>
-        </drilldown>
-      </chart>
-    </panel>
-  </row>
-
-  <!-- Domain Analysis -->
-  <row>
-    <panel>
-      <title>Top Accessed Domains</title>
-      <chart>
-        <search>
-          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
-| stats count by sni_hostname
-| sort - count
-| head 15
-| rename sni_hostname as Domain</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="charting.chart">bar</option>
-        <option name="charting.drilldown">all</option>
-        <option name="charting.legend.placement">none</option>
-        <option name="height">350</option>
-        <drilldown>
-          <set token="form.domain_filter">$click.value$</set>
-        </drilldown>
-      </chart>
-    </panel>
-    <panel>
-      <title>Top Denied Domains</title>
-      <table>
-        <search>
-          <query>`aviatrix_l7` host=$gateway$ action_cim=blocked enforced=$enforced$
-| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
-| stats count as "Block Count", dc(src_ip) as "Unique Sources", values(decided_by) as Policies, latest(_time) as last_seen by sni_hostname
-| eval last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S")
-| sort - "Block Count"
-| head 50
-| rename sni_hostname as Domain</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="count">15</option>
-        <option name="drilldown">row</option>
-        <format type="number" field="Block Count">
-          <option name="precision">0</option>
-        </format>
-        <format type="color" field="Block Count">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" midValue="25"></scale>
-        </format>
-        <drilldown>
-          <set token="form.domain_filter">$row.Domain$</set>
-        </drilldown>
-      </table>
-    </panel>
-  </row>
-
-  <!-- Source & Policy Analysis -->
-  <row>
-    <panel>
-      <title>Domain Access by Source</title>
-      <table>
-        <search>
-          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
-| stats count as Sessions, dc(sni_hostname) as "Unique Domains", values(sni_hostname) as "Top Domains" by src_ip
-| sort - Sessions
-| head 20
-| rename src_ip as "Source IP"</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="count">10</option>
-        <option name="drilldown">row</option>
-        <format type="number" field="Sessions">
-          <option name="precision">0</option>
-        </format>
-      </table>
-    </panel>
-    <panel>
-      <title>Top Policies by Hit Count</title>
-      <table>
-        <search>
-          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
-| stats count as Hits, count(eval(action_cim=="blocked")) as Blocked, count(eval(action_cim=="allowed")) as Allowed, dc(sni_hostname) as "Unique Domains", dc(src_ip) as "Unique Sources" by decided_by
-| eval "Block Rate"=round(Blocked/Hits*100, 1)."%"
-| sort - Hits
-| head 20
-| rename decided_by as "Policy UUID"</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="count">10</option>
-        <option name="drilldown">row</option>
-        <format type="number" field="Hits">
-          <option name="precision">0</option>
-        </format>
-        <format type="color" field="Block Rate">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#53A051"></colorPalette>
-          <scale type="minMidMax" minValue="0" midValue="25" maxValue="100"></scale>
-        </format>
-        <drilldown>
-          <link target="_blank">/app/$env:app$/search?q=search%20%60aviatrix_l7%60%20decided_by%3D%22$row.Policy UUID$%22&amp;earliest=$time.earliest$&amp;latest=$time.latest$</link>
-        </drilldown>
-      </table>
-    </panel>
-  </row>
-
-  <!-- Investigation -->
-  <row>
-    <panel>
-      <title>Top Denied Flows</title>
-      <table>
-        <search>
-          <query>`aviatrix_l7` host=$gateway$ action_cim=blocked enforced=$enforced$
-| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
-| stats count as "Block Count", latest(_time) as last_seen by src_ip, dest_ip, dest_port, proto, sni_hostname, decided_by
-| eval last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S")
-| sort - "Block Count"
-| head 50
-| rename src_ip as "Source", dest_ip as "Destination", dest_port as "Port", proto as "Protocol", sni_hostname as "Domain", decided_by as "Policy"</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="count">20</option>
-        <option name="drilldown">row</option>
-        <format type="number" field="Block Count">
-          <option name="precision">0</option>
-        </format>
-        <format type="color" field="Block Count">
-          <colorPalette type="minMidMax" maxColor="#DC4E41" midColor="#F8BE34" minColor="#FFFFFF"></colorPalette>
-          <scale type="minMidMax" midValue="50"></scale>
-        </format>
-      </table>
-    </panel>
-  </row>
-
-  <!-- Gateway Analysis -->
-  <row>
-    <panel>
-      <title>Activity by Gateway</title>
-      <chart>
-        <search>
-          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
-| eval action_label=if(action_cim=="allowed", "Allowed", "Blocked")
-| chart count over host by action_label
-| rename host as Gateway</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="charting.chart">bar</option>
-        <option name="charting.chart.stackMode">stacked</option>
-        <option name="charting.drilldown">all</option>
-        <option name="charting.legend.placement">bottom</option>
-        <option name="charting.fieldColors">{"Allowed": 0x53A051, "Blocked": 0xDC4E41}</option>
-        <option name="height">250</option>
-        <drilldown>
-          <set token="form.gateway">$click.value$</set>
-        </drilldown>
-      </chart>
-    </panel>
-  </row>
-
-  <!-- Detailed Events -->
-  <row>
-    <panel>
-      <title>L7 Events</title>
-      <table>
-        <search>
-          <query>`aviatrix_l7` host=$gateway$ action_cim=$action$ enforced=$enforced$
-| where "$domain_filter$"="*" OR like(lower(sni_hostname), lower(replace("$domain_filter$", "\*", "%")))
-| eval action_label=if(action_cim=="allowed", "Allowed", "Blocked")
-| table _time, host, src_ip, dest_ip, dest_port, proto, sni_hostname, action_label, decided_by, enforced
-| head 500
-| rename host as Gateway, src_ip as Source, dest_ip as Destination, dest_port as Port, proto as Protocol, sni_hostname as Domain, action_label as Action, decided_by as Policy, enforced as Enforced</query>
-          <earliest>$time.earliest$</earliest>
-          <latest>$time.latest$</latest>
-        </search>
-        <option name="count">20</option>
-        <option name="drilldown">row</option>
-        <option name="wrap">false</option>
-        <format type="color" field="Action">
-          <colorPalette type="map">{"Allowed": 0x53A051, "Blocked": 0xDC4E41}</colorPalette>
-        </format>
-      </table>
-    </panel>
-  </row>
-</form>
+  <description>Distributed Cloud Firewall L7 (TLS/SNI) policy verdicts: which domains are allowed or denied, which rules decide, and what monitor-mode rules would block once enforced.</description>
+  <definition><![CDATA[
+{
+  "title": "L7 Firewall Activity",
+  "description": "Distributed Cloud Firewall L7 (TLS/SNI) policy verdicts: which domains are allowed or denied, which rules decide, and what monitor-mode rules would block once enforced.",
+  "inputs": {
+    "input_time": {
+      "type": "input.timerange",
+      "title": "Time range",
+      "options": {
+        "token": "time",
+        "defaultValue": "-24h@h,now"
+      }
+    },
+    "input_gateway": {
+      "type": "input.dropdown",
+      "title": "Gateway",
+      "dataSources": {
+        "primary": "ds_input_gateway"
+      },
+      "options": {
+        "token": "gateway",
+        "defaultValue": "*",
+        "items": ">frame(label, value) | prepend(formattedStatics) | objects()"
+      },
+      "encoding": {
+        "label": "primary[0]",
+        "value": "primary[1]"
+      },
+      "context": {
+        "formattedConfig": {
+          "number": {
+            "prefix": ""
+          }
+        },
+        "formattedStatics": ">statics | formatByType(formattedConfig)",
+        "statics": [
+          [
+            "All gateways"
+          ],
+          [
+            "*"
+          ]
+        ],
+        "label": ">primary | seriesByName(\"label\") | renameSeries(\"label\") | formatByType(formattedConfig)",
+        "value": ">primary | seriesByName(\"value\") | renameSeries(\"value\") | formatByType(formattedConfig)"
+      }
+    },
+    "input_action": {
+      "type": "input.dropdown",
+      "title": "Outcome",
+      "options": {
+        "token": "action",
+        "defaultValue": "*",
+        "items": [
+          {
+            "label": "All",
+            "value": "*"
+          },
+          {
+            "label": "Allowed",
+            "value": "Allowed"
+          },
+          {
+            "label": "Would block (monitor)",
+            "value": "Would block"
+          },
+          {
+            "label": "Blocked",
+            "value": "Blocked"
+          }
+        ]
+      }
+    },
+    "input_enforced": {
+      "type": "input.dropdown",
+      "title": "Rule mode",
+      "options": {
+        "token": "enforced",
+        "defaultValue": "*",
+        "items": [
+          {
+            "label": "All",
+            "value": "*"
+          },
+          {
+            "label": "Enforced",
+            "value": "true"
+          },
+          {
+            "label": "Monitor only",
+            "value": "false"
+          }
+        ]
+      }
+    },
+    "input_domain_filter": {
+      "type": "input.text",
+      "title": "Domain (wildcards ok)",
+      "options": {
+        "token": "domain_filter",
+        "defaultValue": "*"
+      }
+    },
+    "input_src": {
+      "type": "input.text",
+      "title": "Source IP / CIDR",
+      "options": {
+        "token": "src",
+        "defaultValue": "*"
+      }
+    }
+  },
+  "defaults": {
+    "dataSources": {
+      "ds.search": {
+        "options": {
+          "queryParameters": {
+            "earliest": "$time.earliest$",
+            "latest": "$time.latest$"
+          }
+        }
+      }
+    }
+  },
+  "visualizations": {
+    "viz_10": {
+      "type": "splunk.singlevalue",
+      "title": "Sessions",
+      "dataSources": {
+        "primary": "ds_4"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#3987e5",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      }
+    },
+    "viz_11": {
+      "type": "splunk.singlevalue",
+      "title": "Blocked",
+      "dataSources": {
+        "primary": "ds_5"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#d03b3b",
+        "majorColor": "> majorValue | rangeValue(alertColors)",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      },
+      "context": {
+        "alertColors": [
+          {
+            "to": 1,
+            "value": "#f0efec"
+          },
+          {
+            "from": 1,
+            "value": "#d03b3b"
+          }
+        ]
+      }
+    },
+    "viz_12": {
+      "type": "splunk.singlevalue",
+      "title": "Would block",
+      "dataSources": {
+        "primary": "ds_6"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"total\") | lastPoint()",
+        "sparklineValues": "> primary | seriesByName(\"value\")",
+        "trendDisplay": "off",
+        "sparklineDisplay": "below",
+        "showSparklineAreaGraph": true,
+        "sparklineStrokeColor": "#fab219",
+        "majorColor": "> majorValue | rangeValue(alertColors)",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      },
+      "context": {
+        "alertColors": [
+          {
+            "to": 1,
+            "value": "#f0efec"
+          },
+          {
+            "from": 1,
+            "value": "#fab219"
+          }
+        ]
+      },
+      "description": "Monitor-mode deny matches"
+    },
+    "viz_13": {
+      "type": "splunk.singlevalue",
+      "title": "Domains",
+      "dataSources": {
+        "primary": "ds_7"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"value\") | lastPoint()",
+        "trendDisplay": "off",
+        "sparklineDisplay": "off",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      }
+    },
+    "viz_14": {
+      "type": "splunk.singlevalue",
+      "title": "Sources",
+      "dataSources": {
+        "primary": "ds_8"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"value\") | lastPoint()",
+        "trendDisplay": "off",
+        "sparklineDisplay": "off",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      }
+    },
+    "viz_15": {
+      "type": "splunk.singlevalue",
+      "title": "Rules hit",
+      "dataSources": {
+        "primary": "ds_9"
+      },
+      "options": {
+        "majorValue": "> primary | seriesByName(\"value\") | lastPoint()",
+        "trendDisplay": "off",
+        "sparklineDisplay": "off",
+        "majorColor": "#f0efec",
+        "backgroundColor": "#17181b",
+        "numberPrecision": 0,
+        "shouldUseThousandSeparators": true,
+        "majorFontSize": 34
+      }
+    },
+    "viz_17": {
+      "type": "splunk.area",
+      "title": "Verdicts over time",
+      "dataSources": {
+        "primary": "ds_l7_time"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "legendDisplay": "bottom",
+        "xAxisTitleVisibility": "hide",
+        "seriesColors": [
+          "#3987e5",
+          "#d95926",
+          "#199e70",
+          "#c98500",
+          "#d55181",
+          "#0ca30c",
+          "#9085e9",
+          "#e66767"
+        ],
+        "yAxisTitleText": "sessions",
+        "seriesColorsByField": {
+          "Allowed": "#3987e5",
+          "Would block": "#fab219",
+          "Blocked": "#d03b3b"
+        },
+        "stackMode": "stacked",
+        "areaFillOpacity": 0.55
+      }
+    },
+    "viz_18": {
+      "type": "splunk.bar",
+      "title": "Verdicts by gateway",
+      "dataSources": {
+        "primary": "ds_16"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "legendDisplay": "bottom",
+        "xAxisTitleVisibility": "hide",
+        "seriesColors": [
+          "#3987e5",
+          "#d95926",
+          "#199e70",
+          "#c98500",
+          "#d55181",
+          "#0ca30c",
+          "#9085e9",
+          "#e66767"
+        ],
+        "yAxisTitleVisibility": "hide",
+        "seriesColorsByField": {
+          "Allowed": "#3987e5",
+          "Would block": "#fab219",
+          "Blocked": "#d03b3b"
+        },
+        "stackMode": "stacked"
+      }
+    },
+    "viz_section_19": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "#### DOMAINS",
+        "fontColor": "#c3c2b7",
+        "fontSize": "custom",
+        "customFontSize": 13,
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_22": {
+      "type": "splunk.bar",
+      "title": "Top domains by verdict",
+      "dataSources": {
+        "primary": "ds_20"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "legendDisplay": "bottom",
+        "xAxisTitleVisibility": "hide",
+        "seriesColors": [
+          "#3987e5",
+          "#d95926",
+          "#199e70",
+          "#c98500",
+          "#d55181",
+          "#0ca30c",
+          "#9085e9",
+          "#e66767"
+        ],
+        "yAxisTitleVisibility": "hide",
+        "seriesColorsByField": {
+          "Allowed": "#3987e5",
+          "Would block": "#fab219",
+          "Blocked": "#d03b3b"
+        },
+        "stackMode": "stacked"
+      }
+    },
+    "viz_23": {
+      "type": "splunk.table",
+      "title": "Blocked domains",
+      "dataSources": {
+        "primary": "ds_21"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 10,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small"
+      },
+      "description": "Click a domain to focus the dashboard on it",
+      "eventHandlers": [
+        {
+          "type": "drilldown.setToken",
+          "options": {
+            "tokens": [
+              {
+                "token": "domain_filter",
+                "key": "row.Domain.value"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "viz_26": {
+      "type": "splunk.table",
+      "title": "Would be blocked if enforced",
+      "dataSources": {
+        "primary": "ds_24"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 9,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small"
+      },
+      "description": "Monitor-mode deny matches: the traffic that enforcing these rules would cut off",
+      "eventHandlers": [
+        {
+          "type": "drilldown.setToken",
+          "options": {
+            "tokens": [
+              {
+                "token": "domain_filter",
+                "key": "row.Domain.value"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "viz_27": {
+      "type": "splunk.table",
+      "title": "Rules by hits",
+      "dataSources": {
+        "primary": "ds_25"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 9,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small",
+        "columnFormat": {
+          "Verdict": {
+            "rowColors": "> table | seriesByName(\"Verdict\") | matchValue(colors0)"
+          }
+        }
+      },
+      "context": {
+        "colors0": [
+          {
+            "match": "Allowed",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Would block",
+            "value": "#fab219"
+          },
+          {
+            "match": "Blocked",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Critical",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "High",
+            "value": "#f4a27f"
+          },
+          {
+            "match": "Medium",
+            "value": "#fab219"
+          },
+          {
+            "match": "Low",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Info",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Healthy",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Warning",
+            "value": "#fab219"
+          },
+          {
+            "match": "Silent",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Up",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Down",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Detected",
+            "value": "#fab219"
+          },
+          {
+            "match": "success",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "failure",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "created",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "modified",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "deleted",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "read",
+            "value": "#898781"
+          },
+          {
+            "match": "active",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "disconnected",
+            "value": "#898781"
+          }
+        ]
+      },
+      "description": "Rule UUIDs as logged (decided_by). Click to open the rule's sessions in Search",
+      "eventHandlers": [
+        {
+          "type": "drilldown.linkToSearch",
+          "options": {
+            "type": "auto",
+            "newTab": true
+          }
+        }
+      ]
+    },
+    "viz_section_28": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "#### INSPECTION EXCEPTIONS\nTLS validation failures, IDS engine unavailability and stalled handshakes: traffic the L7 engine could not fully inspect.",
+        "fontColor": "#c3c2b7",
+        "fontSize": "custom",
+        "customFontSize": 13,
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_30": {
+      "type": "splunk.table",
+      "title": "Exceptions",
+      "dataSources": {
+        "primary": "ds_l7_exceptions"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 7,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small"
+      }
+    },
+    "viz_section_31": {
+      "type": "splunk.markdown",
+      "options": {
+        "markdown": "#### SOURCES AND SESSIONS",
+        "fontColor": "#c3c2b7",
+        "fontSize": "custom",
+        "customFontSize": 13,
+        "backgroundColor": "transparent"
+      }
+    },
+    "viz_33": {
+      "type": "splunk.table",
+      "title": "Top sources",
+      "dataSources": {
+        "primary": "ds_32"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 7,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small"
+      },
+      "eventHandlers": [
+        {
+          "type": "drilldown.setToken",
+          "options": {
+            "tokens": [
+              {
+                "token": "src",
+                "key": "row.Source.value"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "viz_35": {
+      "type": "splunk.table",
+      "title": "Sessions",
+      "dataSources": {
+        "primary": "ds_l7_events"
+      },
+      "options": {
+        "backgroundColor": "#17181b",
+        "count": 12,
+        "showInternalFields": false,
+        "headerVisibility": "fixed",
+        "fontSize": "small",
+        "columnFormat": {
+          "Outcome": {
+            "rowColors": "> table | seriesByName(\"Outcome\") | matchValue(colors0)"
+          }
+        }
+      },
+      "context": {
+        "colors0": [
+          {
+            "match": "Allowed",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Would block",
+            "value": "#fab219"
+          },
+          {
+            "match": "Blocked",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Critical",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "High",
+            "value": "#f4a27f"
+          },
+          {
+            "match": "Medium",
+            "value": "#fab219"
+          },
+          {
+            "match": "Low",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "Info",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Healthy",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Warning",
+            "value": "#fab219"
+          },
+          {
+            "match": "Silent",
+            "value": "#c3c2b7"
+          },
+          {
+            "match": "Up",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "Down",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "Detected",
+            "value": "#fab219"
+          },
+          {
+            "match": "success",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "failure",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "created",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "modified",
+            "value": "#86b6ef"
+          },
+          {
+            "match": "deleted",
+            "value": "#ff8a85"
+          },
+          {
+            "match": "read",
+            "value": "#898781"
+          },
+          {
+            "match": "active",
+            "value": "#4cc94c"
+          },
+          {
+            "match": "disconnected",
+            "value": "#898781"
+          }
+        ]
+      },
+      "eventHandlers": [
+        {
+          "type": "drilldown.linkToSearch",
+          "options": {
+            "type": "auto",
+            "newTab": true
+          }
+        }
+      ]
+    }
+  },
+  "dataSources": {
+    "ds_input_gateway": {
+      "type": "ds.search",
+      "name": "ds_input_gateway",
+      "options": {
+        "query": "| tstats count where `aviatrix_index` sourcetype=\"aviatrix:firewall:l7\" by host\n| sort - count | head 300\n| eval label=host, value=host | fields label value",
+        "queryParameters": {
+          "earliest": "$time.earliest$",
+          "latest": "$time.latest$"
+        }
+      }
+    },
+    "ds_l7_time": {
+      "type": "ds.search",
+      "name": "ds_l7_time",
+      "options": {
+        "query": "| tstats summariesonly=false prestats=t count from datamodel=Aviatrix_Traffic.Flows where Flows.log_type=l7 host=$gateway$ Flows.src=$src$ Flows.enforced=$enforced$ Flows.outcome=$action|s$ Flows.domain=$domain_filter|s$ by _time Flows.outcome\n| timechart count by Flows.outcome"
+      }
+    },
+    "ds_l7_agg": {
+      "type": "ds.search",
+      "name": "ds_l7_agg",
+      "options": {
+        "query": "| tstats summariesonly=false fillnull_value=\"-\" count max(_time) as last from datamodel=Aviatrix_Traffic.Flows where Flows.log_type=l7 host=$gateway$ Flows.src=$src$ Flows.enforced=$enforced$ Flows.outcome=$action|s$ Flows.domain=$domain_filter|s$ by Flows.domain Flows.src Flows.port Flows.rule host Flows.enforced Flows.outcome\n| rename Flows.* as *"
+      }
+    },
+    "ds_4": {
+      "type": "ds.chain",
+      "name": "ds_4",
+      "options": {
+        "extend": "ds_l7_time",
+        "query": "| eval value=coalesce(Allowed, 0)+coalesce(Blocked, 0)+coalesce('Would block', 0)\n| fields _time value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_5": {
+      "type": "ds.chain",
+      "name": "ds_5",
+      "options": {
+        "extend": "ds_l7_time",
+        "query": "| eval value=coalesce(Blocked, 0)\n| fields _time value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_6": {
+      "type": "ds.chain",
+      "name": "ds_6",
+      "options": {
+        "extend": "ds_l7_time",
+        "query": "| eval value=coalesce('Would block', 0)\n| fields _time value\n| eventstats sum(value) as total\n| appendpipe [| stats count as n | where n=0 | eval value=0, total=0 | fields value total]"
+      }
+    },
+    "ds_7": {
+      "type": "ds.chain",
+      "name": "ds_7",
+      "options": {
+        "extend": "ds_l7_agg",
+        "query": "| stats dc(domain) as value"
+      }
+    },
+    "ds_8": {
+      "type": "ds.chain",
+      "name": "ds_8",
+      "options": {
+        "extend": "ds_l7_agg",
+        "query": "| stats dc(src) as value"
+      }
+    },
+    "ds_9": {
+      "type": "ds.chain",
+      "name": "ds_9",
+      "options": {
+        "extend": "ds_l7_agg",
+        "query": "| stats dc(rule) as value"
+      }
+    },
+    "ds_16": {
+      "type": "ds.chain",
+      "name": "ds_16",
+      "options": {
+        "extend": "ds_l7_agg",
+        "query": "| chart sum(count) over host by outcome\n| addtotals fieldname=_total\n| sort - _total | head 10\n| fields - _total"
+      }
+    },
+    "ds_20": {
+      "type": "ds.chain",
+      "name": "ds_20",
+      "options": {
+        "extend": "ds_l7_agg",
+        "query": "| chart sum(count) over domain by outcome\n| addtotals fieldname=_total\n| sort - _total | head 15\n| fields - _total"
+      }
+    },
+    "ds_21": {
+      "type": "ds.chain",
+      "name": "ds_21",
+      "options": {
+        "extend": "ds_l7_agg",
+        "query": "| where outcome=\"Blocked\"\n| stats sum(count) as Blocked dc(src) as Sources dc(rule) as Rules values(host) as gw max(last) as last by domain\n| eval Gateways=mvjoin(mvindex(gw, 0, 1), \", \").if(mvcount(gw)>2, \" +\".(mvcount(gw)-2), \"\"), \"Last seen\"=strftime(last, \"%Y-%m-%d %H:%M\"), \"Looks like\"=if(match(domain, \"^\\d{1,3}(\\.\\d{1,3}){3}$\"), \"IP as SNI\", \"\")\n| sort - Blocked\n| rename domain as Domain\n| table Domain Blocked Sources Rules Gateways \"Last seen\" \"Looks like\""
+      }
+    },
+    "ds_24": {
+      "type": "ds.chain",
+      "name": "ds_24",
+      "options": {
+        "extend": "ds_l7_agg",
+        "query": "| where outcome=\"Would block\"\n| stats sum(count) as Sessions dc(src) as Sources values(rule) as rules values(host) as gw max(last) as last by domain\n| eval Rule=mvindex(rules, 0), Gateways=mvjoin(mvindex(gw, 0, 1), \", \").if(mvcount(gw)>2, \" +\".(mvcount(gw)-2), \"\"), \"Last seen\"=strftime(last, \"%Y-%m-%d %H:%M\")\n| sort - Sessions\n| rename domain as Domain\n| table Domain Sessions Sources Gateways Rule \"Last seen\""
+      }
+    },
+    "ds_25": {
+      "type": "ds.chain",
+      "name": "ds_25",
+      "options": {
+        "extend": "ds_l7_agg",
+        "query": "| stats sum(count) as Hits sum(eval(if(outcome==\"Blocked\", count, 0))) as Blocked sum(eval(if(outcome==\"Would block\", count, 0))) as wb dc(domain) as Domains dc(src) as Sources values(enforced) as enf by rule\n| eval Mode=case(mvcount(enf)>1, \"mixed\", enf==\"true\", \"enforced\", 1=1, \"monitor\"), Verdict=case(Blocked>0, \"Blocked\", wb>0, \"Would block\", 1=1, \"Allowed\")\n| sort - Hits\n| rename rule as Rule, wb as \"Would block\"\n| table Rule Verdict Mode Hits Domains Sources"
+      }
+    },
+    "ds_l7_exceptions": {
+      "type": "ds.search",
+      "name": "ds_l7_exceptions",
+      "options": {
+        "query": "`aviatrix_l7` host=$gateway$ src=$src$ (reason=TLS_PROFILE OR reason=\"*TIMEOUT*\")\n| eval domain=coalesce(sni_hostname, dest), issue=case(reason==\"TLS_PROFILE\", \"TLS: \".coalesce(message, \"profile check failed\"), reason==\"IDS_POLICY_TIMEOUT\", \"IDS unavailable: session passed uninspected\", reason==\"CONNECTION_SYN_ONLY_TIMEOUT\", \"TCP handshake stalled (server-speaks-first protocol?)\", 1=1, reason)\n| where \"$domain_filter$\"=\"*\" OR like(lower(domain), lower(replace(\"$domain_filter$\", \"\\*\", \"%\")))\n| stats count as Events dc(src) as Sources values(dest_port) as ports values(host) as gw max(_time) as last by issue domain\n| eval Ports=mvjoin(mvindex(ports, 0, 2), \", \"), Gateways=mvjoin(mvindex(gw, 0, 1), \", \"), \"Last seen\"=strftime(last, \"%Y-%m-%d %H:%M\")\n| sort - Events\n| rename issue as Issue, domain as Domain\n| table Issue Domain Ports Events Sources Gateways \"Last seen\""
+      }
+    },
+    "ds_32": {
+      "type": "ds.chain",
+      "name": "ds_32",
+      "options": {
+        "extend": "ds_l7_agg",
+        "query": "| stats sum(count) as Sessions dc(domain) as Domains sum(eval(if(outcome==\"Blocked\", count, 0))) as Blocked sum(eval(if(outcome==\"Would block\", count, 0))) as wb values(domain) as doms by src\n| eval \"Denied %\"=round((Blocked+wb)/Sessions*100, 1), \"Sample domains\"=mvjoin(mvindex(doms, 0, 2), \", \")\n| sort - Sessions | head 100\n| rename src as Source, wb as \"Would block\"\n| table Source Sessions Domains Blocked \"Would block\" \"Denied %\" \"Sample domains\""
+      }
+    },
+    "ds_l7_events": {
+      "type": "ds.search",
+      "name": "ds_l7_events",
+      "options": {
+        "query": "`aviatrix_l7` host=$gateway$ src=$src$ enforced=$enforced$ NOT session_stage=end NOT reason=TLS_PROFILE\n| eval domain=coalesce(sni_hostname, dest)\n| where \"$domain_filter$\"=\"*\" OR like(lower(domain), lower(replace(\"$domain_filter$\", \"\\*\", \"%\")))\n| `aviatrix_outcome`\n| search outcome=$action|s$\n| head 500\n| eval Time=strftime(_time, \"%Y-%m-%d %H:%M:%S\"), Mode=if(lower(enforced)==\"false\", \"monitor\", \"enforced\")\n| rename host as Gateway, src as Source, dest as Destination, dest_port as Port, domain as Domain, outcome as Outcome, decided_by as Rule\n| table Time Gateway Source Domain Destination Port Outcome Mode Rule"
+      }
+    }
+  },
+  "layout": {
+    "type": "grid",
+    "options": {
+      "width": 1440,
+      "height": 2504
+    },
+    "structure": [
+      {
+        "item": "viz_10",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_11",
+        "type": "block",
+        "position": {
+          "x": 240,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_12",
+        "type": "block",
+        "position": {
+          "x": 480,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_13",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_14",
+        "type": "block",
+        "position": {
+          "x": 960,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_15",
+        "type": "block",
+        "position": {
+          "x": 1200,
+          "y": 0,
+          "w": 240,
+          "h": 150
+        }
+      },
+      {
+        "item": "viz_17",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 150,
+          "w": 960,
+          "h": 280
+        }
+      },
+      {
+        "item": "viz_18",
+        "type": "block",
+        "position": {
+          "x": 960,
+          "y": 150,
+          "w": 480,
+          "h": 280
+        }
+      },
+      {
+        "item": "viz_section_19",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 430,
+          "w": 1440,
+          "h": 44
+        }
+      },
+      {
+        "item": "viz_22",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 474,
+          "w": 720,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_23",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 474,
+          "w": 720,
+          "h": 400
+        }
+      },
+      {
+        "item": "viz_26",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 874,
+          "w": 720,
+          "h": 380
+        }
+      },
+      {
+        "item": "viz_27",
+        "type": "block",
+        "position": {
+          "x": 720,
+          "y": 874,
+          "w": 720,
+          "h": 380
+        }
+      },
+      {
+        "item": "viz_section_28",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1254,
+          "w": 1440,
+          "h": 76
+        }
+      },
+      {
+        "item": "viz_30",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1330,
+          "w": 1440,
+          "h": 330
+        }
+      },
+      {
+        "item": "viz_section_31",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1660,
+          "w": 1440,
+          "h": 44
+        }
+      },
+      {
+        "item": "viz_33",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 1704,
+          "w": 1440,
+          "h": 330
+        }
+      },
+      {
+        "item": "viz_35",
+        "type": "block",
+        "position": {
+          "x": 0,
+          "y": 2034,
+          "w": 1440,
+          "h": 470
+        }
+      }
+    ],
+    "globalInputs": [
+      "input_time",
+      "input_gateway",
+      "input_action",
+      "input_enforced",
+      "input_domain_filter",
+      "input_src"
+    ]
+  }
+}
+  ]]></definition>
+  <meta type="hiddenElements"><![CDATA[
+{"hideEdit": false, "hideOpenInSearch": false, "hideExport": false}
+  ]]></meta>
+</dashboard>
